@@ -10,6 +10,9 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private float acceleration = 16f;
     [SerializeField] private float rotationSpeed = 12f;
 
+    [Header("Camera Relative Movement")]
+    [SerializeField] private Transform cameraTransform;
+
     [Header("Jump")]
     [SerializeField] private float jumpForce = 6f;
     [SerializeField] private GroundSensor groundSensor;
@@ -34,6 +37,11 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         rb.freezeRotation = true;
+
+        if (cameraTransform == null && Camera.main != null)
+        {
+            cameraTransform = Camera.main.transform;
+        }
     }
 
     private void Update()
@@ -73,27 +81,9 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     {
         float targetSpeed = wantsToRun ? runSpeed : walkSpeed;
 
-        Vector3 moveDirection = new Vector3(
-            moveInput.x,
-            0f,
-            moveInput.y
-        );
+        Vector3 moveDirection = GetCameraRelativeMoveDirection();
 
-        if (moveDirection.sqrMagnitude > 0.01f)
-        {
-            moveDirection.Normalize();
-
-            Quaternion targetRotation = Quaternion.LookRotation(
-                moveDirection,
-                Vector3.up
-            );
-
-            transform.rotation = Quaternion.Slerp(
-                transform.rotation,
-                targetRotation,
-                rotationSpeed * Time.fixedDeltaTime
-            );
-        }
+        RotatePlayerTowardsMovement(moveDirection);
 
         Vector3 currentVelocity = rb.linearVelocity;
 
@@ -118,6 +108,54 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         );
 
         CurrentSpeed = newHorizontalVelocity.magnitude;
+    }
+
+    private Vector3 GetCameraRelativeMoveDirection()
+    {
+        if (moveInput.sqrMagnitude < 0.01f)
+        {
+            return Vector3.zero;
+        }
+
+        if (cameraTransform == null)
+        {
+            Vector3 fallbackDirection = new Vector3(moveInput.x, 0f, moveInput.y);
+            return fallbackDirection.normalized;
+        }
+
+        Vector3 cameraForward = cameraTransform.forward;
+        Vector3 cameraRight = cameraTransform.right;
+
+        cameraForward.y = 0f;
+        cameraRight.y = 0f;
+
+        cameraForward.Normalize();
+        cameraRight.Normalize();
+
+        Vector3 moveDirection =
+            cameraRight * moveInput.x +
+            cameraForward * moveInput.y;
+
+        return moveDirection.normalized;
+    }
+
+    private void RotatePlayerTowardsMovement(Vector3 moveDirection)
+    {
+        if (moveDirection.sqrMagnitude < 0.01f)
+        {
+            return;
+        }
+
+        Quaternion targetRotation = Quaternion.LookRotation(
+            moveDirection,
+            Vector3.up
+        );
+
+        transform.rotation = Quaternion.Slerp(
+            transform.rotation,
+            targetRotation,
+            rotationSpeed * Time.fixedDeltaTime
+        );
     }
 
     private void Jump()
