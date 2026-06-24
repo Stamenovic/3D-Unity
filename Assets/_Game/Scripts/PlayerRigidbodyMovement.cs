@@ -20,7 +20,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private GroundSensor groundSensor;
 
     [Header("Debug")]
-    [SerializeField] private bool showDebugInfo = true;
+    [SerializeField] private bool showDebugInfo;
 
     private Rigidbody rb;
     private PlayerInput playerInput;
