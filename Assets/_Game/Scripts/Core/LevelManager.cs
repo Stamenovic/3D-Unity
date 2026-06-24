@@ -23,7 +23,15 @@ public class LevelManager : MonoBehaviour
         Instance = this;
 
         pauseAction = new InputAction("Pause", binding: "<Keyboard>/escape");
-        pauseAction.performed += _ => TogglePause();
+        pauseAction.performed += _ =>
+        {
+            if (GameUIBootstrap.BlocksPauseToggle || !GameUIBootstrap.AllowsGameplayPause)
+            {
+                return;
+            }
+
+            TogglePause();
+        };
     }
 
     private void OnEnable() => pauseAction.Enable();
@@ -41,17 +49,33 @@ public class LevelManager : MonoBehaviour
     public void PauseGame()
     {
         if (IsPaused) return;
+
         Time.timeScale = 0f;
         if (playerInput != null) playerInput.enabled = false;
-        GameManager.Instance.SetState(GameState.Paused);
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.SetState(GameState.Paused);
+        }
     }
 
     public void ResumeGame()
     {
         if (!IsPaused) return;
+
         Time.timeScale = 1f;
         if (playerInput != null) playerInput.enabled = true;
-        GameManager.Instance.SetState(GameState.Playing);
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.SetState(GameState.Playing);
+        }
     }
 
     public void TogglePause()

@@ -6,6 +6,13 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(PlayerInput))]
 public class PlayerRigidbodyMovement : MonoBehaviour
 {
+    public enum SpeedModifierMode
+    {
+        Normal,
+        Slowed,
+        Boosted
+    }
+
     [Header("Movement")]
     [SerializeField] private float walkSpeed = 3f;
     [SerializeField] private float runSpeed = 6f;
@@ -19,20 +26,36 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private float jumpForce = 6f;
     [SerializeField] private GroundSensor groundSensor;
 
+    [Header("Speed Modifiers")]
+    [SerializeField] private float modifierDuration = 6f;
+    [SerializeField] private float slowMultiplier = 0.5f;
+    [SerializeField] private float boostMultiplier = 1.5f;
+
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
 
     private Rigidbody rb;
+    private PlayerInput playerInput;
+    private InputAction sprintAction;
 
     private Vector2 moveInput;
     private bool wantsToRun;
     private bool wantsToJump;
+    private SpeedModifierMode activeModifier = SpeedModifierMode.Normal;
+    private float modifierTimeRemaining;
 
     public float CurrentSpeed { get; private set; }
     public bool IsGrounded => groundSensor != null && groundSensor.IsGrounded;
-
-    private PlayerInput playerInput;
-    private InputAction sprintAction;
+    public bool IsRunning => wantsToRun && CurrentSpeed > 0.1f;
+    public bool HasMovementInput => moveInput.sqrMagnitude > 0.01f;
+    public SpeedModifierMode ActiveModifier => activeModifier;
+    public float ModifierTimeRemaining => modifierTimeRemaining;
+    public float ActiveSpeedMultiplier => activeModifier switch
+    {
+        SpeedModifierMode.Slowed => slowMultiplier,
+        SpeedModifierMode.Boosted => boostMultiplier,
+        _ => 1f
+    };
 
     private void Awake()
     {
@@ -40,38 +63,60 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         rb.freezeRotation = true;
 
         if (cameraTransform == null && Camera.main != null)
+        {
             cameraTransform = Camera.main.transform;
+        }
 
-        // Subscribe directly to the Sprint action
         playerInput = GetComponent<PlayerInput>();
-        sprintAction = playerInput.actions["Sprint"];
+        sprintAction = playerInput.actions != null
+            ? playerInput.actions.FindAction("Sprint", false)
+            : null;
 
-        sprintAction.started += _ => wantsToRun = true;
-        sprintAction.canceled += _ => wantsToRun = false;
+        if (sprintAction != null)
+        {
+            sprintAction.started += OnSprintStarted;
+            sprintAction.canceled += OnSprintCanceled;
+        }
+    }
+
+    private void Update()
+    {
+        UpdateKeyboardFallbackInput();
+        UpdateSpeedModifierInput();
+        UpdateSpeedModifierTimer();
     }
 
     private void OnDestroy()
     {
-        // Always unsubscribe to avoid memory leaks
-        sprintAction.started -= _ => wantsToRun = true;
-        sprintAction.canceled -= _ => wantsToRun = false;
+        if (sprintAction == null)
+        {
+            return;
+        }
+
+        sprintAction.started -= OnSprintStarted;
+        sprintAction.canceled -= OnSprintCanceled;
     }
 
-    // ─── Input Callbacks (called by PlayerInput component) ───────────────────
+    private void OnSprintStarted(InputAction.CallbackContext context)
+    {
+        wantsToRun = true;
+    }
 
-    // Receives Vector2 from the "Move" action (WASD / Left Stick)
+    private void OnSprintCanceled(InputAction.CallbackContext context)
+    {
+        wantsToRun = false;
+    }
+
     private void OnMove(InputValue value)
     {
         moveInput = Vector2.ClampMagnitude(value.Get<Vector2>(), 1f);
     }
 
-    // Receives float (1 = pressed, 0 = released) from the "Sprint" action
     private void OnSprint(InputValue value)
     {
         wantsToRun = value.isPressed;
     }
 
-    // Receives a button press from the "Jump" action (triggered only on press)
     private void OnJump(InputValue value)
     {
         if (value.isPressed)
@@ -80,7 +125,25 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         }
     }
 
-    // ─── Physics ──────────────────────────────────────────────────────────────
+    private void UpdateKeyboardFallbackInput()
+    {
+        if (Keyboard.current == null)
+        {
+            return;
+        }
+
+        if (sprintAction == null)
+        {
+            wantsToRun =
+                Keyboard.current.leftShiftKey.isPressed ||
+                Keyboard.current.rightShiftKey.isPressed;
+        }
+
+        if (Keyboard.current.spaceKey.wasPressedThisFrame)
+        {
+            wantsToJump = true;
+        }
+    }
 
     private void FixedUpdate()
     {
@@ -96,7 +159,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
 
     private void Move()
     {
-        float targetSpeed = wantsToRun ? runSpeed : walkSpeed;
+        float targetSpeed = (wantsToRun ? runSpeed : walkSpeed) * ActiveSpeedMultiplier;
 
         Vector3 moveDirection = GetCameraRelativeMoveDirection();
 
@@ -189,7 +252,44 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         }
     }
 
-    // ─── Debug ────────────────────────────────────────────────────────────────
+    public void ApplySpeedModifier(SpeedModifierMode modifier, float duration)
+    {
+        activeModifier = modifier;
+        modifierTimeRemaining = Mathf.Max(0f, duration);
+    }
+
+    private void UpdateSpeedModifierInput()
+    {
+        if (Keyboard.current == null)
+        {
+            return;
+        }
+
+        if (Keyboard.current.qKey.wasPressedThisFrame)
+        {
+            ApplySpeedModifier(SpeedModifierMode.Slowed, modifierDuration);
+        }
+
+        if (Keyboard.current.eKey.wasPressedThisFrame)
+        {
+            ApplySpeedModifier(SpeedModifierMode.Boosted, modifierDuration);
+        }
+    }
+
+    private void UpdateSpeedModifierTimer()
+    {
+        if (activeModifier == SpeedModifierMode.Normal)
+        {
+            return;
+        }
+
+        modifierTimeRemaining -= Time.deltaTime;
+        if (modifierTimeRemaining <= 0f)
+        {
+            activeModifier = SpeedModifierMode.Normal;
+            modifierTimeRemaining = 0f;
+        }
+    }
 
     private void OnGUI()
     {
