@@ -44,6 +44,10 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private SpeedModifierMode activeModifier = SpeedModifierMode.Normal;
     private float modifierTimeRemaining;
 
+    // Speed multipliers — stacked multiplicatively so boost + slow work simultaneously
+    private float timedSpeedMultiplier = 1f;   // set by timed pickups
+    private float zoneSpeedMultiplier = 1f;    // set by trigger zones (no duration)
+
     public float CurrentSpeed { get; private set; }
     public bool IsGrounded => groundSensor != null && groundSensor.IsGrounded;
     public bool IsRunning => wantsToRun && CurrentSpeed > 0.1f;
@@ -82,8 +86,6 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private void Update()
     {
         UpdateKeyboardFallbackInput();
-        UpdateSpeedModifierInput();
-        UpdateSpeedModifierTimer();
     }
 
     private void OnDestroy()
@@ -159,7 +161,8 @@ public class PlayerRigidbodyMovement : MonoBehaviour
 
     private void Move()
     {
-        float targetSpeed = (wantsToRun ? runSpeed : walkSpeed) * ActiveSpeedMultiplier;
+        float effectiveMultiplier = timedSpeedMultiplier * zoneSpeedMultiplier;
+        float targetSpeed = (wantsToRun ? runSpeed : walkSpeed) * effectiveMultiplier;
 
         Vector3 moveDirection = GetCameraRelativeMoveDirection();
 
@@ -252,44 +255,28 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         }
     }
 
-    public void ApplySpeedModifier(SpeedModifierMode modifier, float duration)
+    // ─── Speed Effects ────────────────────────────────────────────────────────
+
+    public void ApplyTimedSpeedEffect(float multiplier, float duration)
     {
-        activeModifier = modifier;
-        modifierTimeRemaining = Mathf.Max(0f, duration);
+        StopCoroutine(nameof(TimedSpeedRoutine));
+        StartCoroutine(TimedSpeedRoutine(multiplier, duration));
     }
 
-    private void UpdateSpeedModifierInput()
+    private System.Collections.IEnumerator TimedSpeedRoutine(float multiplier, float duration)
     {
-        if (Keyboard.current == null)
-        {
-            return;
-        }
-
-        if (Keyboard.current.qKey.wasPressedThisFrame)
-        {
-            ApplySpeedModifier(SpeedModifierMode.Slowed, modifierDuration);
-        }
-
-        if (Keyboard.current.eKey.wasPressedThisFrame)
-        {
-            ApplySpeedModifier(SpeedModifierMode.Boosted, modifierDuration);
-        }
+        timedSpeedMultiplier = multiplier;
+        yield return new WaitForSeconds(duration);
+        timedSpeedMultiplier = 1f;
     }
 
-    private void UpdateSpeedModifierTimer()
+    // Called by zone-based traps — pass 1f on exit to restore
+    public void SetZoneSpeedEffect(float multiplier)
     {
-        if (activeModifier == SpeedModifierMode.Normal)
-        {
-            return;
-        }
-
-        modifierTimeRemaining -= Time.deltaTime;
-        if (modifierTimeRemaining <= 0f)
-        {
-            activeModifier = SpeedModifierMode.Normal;
-            modifierTimeRemaining = 0f;
-        }
+        zoneSpeedMultiplier = multiplier;
     }
+
+    // ─── Debug ────────────────────────────────────────────────────────────────
 
     private void OnGUI()
     {
