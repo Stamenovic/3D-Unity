@@ -28,6 +28,10 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private bool wantsToRun;
     private bool wantsToJump;
 
+    // Speed multipliers — stacked multiplicatively so boost + slow work simultaneously
+    private float timedSpeedMultiplier = 1f;   // set by timed pickups
+    private float zoneSpeedMultiplier = 1f;    // set by trigger zones (no duration)
+
     public float CurrentSpeed { get; private set; }
     public bool IsGrounded => groundSensor != null && groundSensor.IsGrounded;
 
@@ -96,7 +100,8 @@ public class PlayerRigidbodyMovement : MonoBehaviour
 
     private void Move()
     {
-        float targetSpeed = wantsToRun ? runSpeed : walkSpeed;
+        float effectiveMultiplier = timedSpeedMultiplier * zoneSpeedMultiplier;
+        float targetSpeed = (wantsToRun ? runSpeed : walkSpeed) * effectiveMultiplier;
 
         Vector3 moveDirection = GetCameraRelativeMoveDirection();
 
@@ -187,6 +192,27 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         {
             groundSensor.ResetContacts();
         }
+    }
+
+    // ─── Speed Effects ────────────────────────────────────────────────────────
+
+    public void ApplyTimedSpeedEffect(float multiplier, float duration)
+    {
+        StopCoroutine(nameof(TimedSpeedRoutine));
+        StartCoroutine(TimedSpeedRoutine(multiplier, duration));
+    }
+
+    private System.Collections.IEnumerator TimedSpeedRoutine(float multiplier, float duration)
+    {
+        timedSpeedMultiplier = multiplier;
+        yield return new WaitForSeconds(duration);
+        timedSpeedMultiplier = 1f;
+    }
+
+    // Called by zone-based traps — pass 1f on exit to restore
+    public void SetZoneSpeedEffect(float multiplier)
+    {
+        zoneSpeedMultiplier = multiplier;
     }
 
     // ─── Debug ────────────────────────────────────────────────────────────────
