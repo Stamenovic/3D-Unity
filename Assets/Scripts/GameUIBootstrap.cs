@@ -221,7 +221,7 @@ public class GameUIBootstrap : MonoBehaviour
 
         GUIStyle title = CreateStyle(42, FontStyle.Bold, SoftCyan, TextAnchor.MiddleCenter);
         GUIStyle section = CreateStyle(30, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
-        GUIStyle rowTitle = CreateStyle(28, FontStyle.Bold, SoftCyan, TextAnchor.UpperLeft);
+        GUIStyle rowTitle = CreateStyle(25, FontStyle.Bold, SoftCyan, TextAnchor.UpperLeft);
         GUIStyle checkboxStyle = CreateStyle(23, FontStyle.Bold, Color.white, TextAnchor.MiddleLeft);
 
         GUI.Label(titlePlate, "SETTINGS", title);
@@ -231,17 +231,21 @@ public class GameUIBootstrap : MonoBehaviour
         float rowTop = 236f;
         float effectsTop = 462f;
         float left = 324f;
-        GUI.Label(new Rect(left, rowTop - 50f, 270f, 36f), "BACKGROUND MUSIC", rowTitle);
+        GUI.Label(new Rect(left, rowTop - 50f, 390f, 36f), "BACKGROUND MUSIC", rowTitle);
         DrawIconBox(new Rect(left, rowTop, 142f, 142f), true);
 
         musicVolume = DrawHologramSlider(new Rect(574f, 258f, 482f, 74f), musicVolume);
-        musicEnabled = DrawHologramCheckbox(new Rect(579f, 357f, 34f, 34f), new Rect(579f, 354f, 420f, 42f), musicEnabled);
+        bool musicMuted = !musicEnabled;
+        musicMuted = DrawHologramCheckbox(new Rect(579f, 357f, 34f, 34f), new Rect(579f, 354f, 420f, 42f), musicMuted);
+        musicEnabled = !musicMuted;
         GUI.Label(new Rect(626f, 354f, 370f, 42f), "MUTE MUSIC", checkboxStyle);
 
-        GUI.Label(new Rect(left, effectsTop - 50f, 270f, 36f), "SPECIAL EFFECTS", rowTitle);
+        GUI.Label(new Rect(left, effectsTop - 50f, 390f, 36f), "SPECIAL EFFECTS", rowTitle);
         DrawIconBox(new Rect(left, effectsTop, 142f, 142f), false);
         effectsIntensity = DrawHologramSlider(new Rect(574f, 482f, 482f, 74f), effectsIntensity);
-        specialEffectsEnabled = DrawHologramCheckbox(new Rect(579f, 582f, 34f, 34f), new Rect(579f, 579f, 420f, 42f), specialEffectsEnabled);
+        bool effectsMuted = !specialEffectsEnabled;
+        effectsMuted = DrawHologramCheckbox(new Rect(579f, 582f, 34f, 34f), new Rect(579f, 579f, 420f, 42f), effectsMuted);
+        specialEffectsEnabled = !effectsMuted;
         GUI.Label(new Rect(626f, 579f, 370f, 42f), "MUTE EFFECTS", checkboxStyle);
 
         ApplyAudioSettings();
@@ -408,25 +412,30 @@ public class GameUIBootstrap : MonoBehaviour
     private void DrawMusicIcon(Rect rect)
     {
         Color icon = new Color(SoftCyan.r, SoftCyan.g, SoftCyan.b, 0.95f);
-        GUIStyle noteStyle = CreateStyle(72, FontStyle.Bold, icon, TextAnchor.MiddleCenter);
-        GUI.Label(new Rect(rect.x + 22f, rect.y + 18f, 74f, 94f), "♪", noteStyle);
+        GUI.Label(new Rect(rect.x + 18f, rect.y + 10f, rect.width - 36f, 72f), "MUSIC", CreateStyle(22, FontStyle.Bold, icon, TextAnchor.MiddleCenter));
 
-        DrawRect(new Rect(rect.x + 86f, rect.y + 70f, 18f, 38f), icon);
-        DrawRect(new Rect(rect.x + 104f, rect.y + 78f, 8f, 22f), icon);
-        DrawRect(new Rect(rect.x + 118f, rect.y + 72f, 5f, 34f), new Color(icon.r, icon.g, icon.b, 0.76f));
-        DrawRect(new Rect(rect.x + 128f, rect.y + 66f, 4f, 46f), new Color(icon.r, icon.g, icon.b, 0.58f));
+        float baseY = rect.y + 110f;
+        for (int i = 0; i < 5; i++)
+        {
+            float height = 18f + i * 9f;
+            DrawRect(new Rect(rect.x + 36f + i * 14f, baseY - height, 8f, height), icon);
+        }
     }
 
     private void DrawEffectsIcon(Rect rect)
     {
         Color icon = new Color(SoftCyan.r, SoftCyan.g, SoftCyan.b, 0.95f);
-        GUIStyle burstStyle = CreateStyle(78, FontStyle.Bold, icon, TextAnchor.MiddleCenter);
-        GUI.Label(new Rect(rect.x + 8f, rect.y + 18f, rect.width - 16f, 88f), "✦", burstStyle);
+        GUIStyle fxText = CreateStyle(44, FontStyle.Bold, icon, TextAnchor.MiddleCenter);
+        GUI.Label(new Rect(rect.x + 18f, rect.y + 16f, rect.width - 36f, 58f), "FX", fxText);
 
-        DrawRect(new Rect(rect.x + 86f, rect.y + 82f, 18f, 28f), icon);
-        DrawRect(new Rect(rect.x + 104f, rect.y + 88f, 8f, 16f), icon);
-        DrawRect(new Rect(rect.x + 118f, rect.y + 82f, 5f, 28f), new Color(icon.r, icon.g, icon.b, 0.76f));
-        DrawRect(new Rect(rect.x + 128f, rect.y + 76f, 4f, 40f), new Color(icon.r, icon.g, icon.b, 0.58f));
+        float cx = rect.center.x;
+        float cy = rect.y + 96f;
+        DrawRect(new Rect(cx - 42f, cy - 3f, 84f, 6f), icon);
+        DrawRect(new Rect(cx - 3f, cy - 42f, 6f, 84f), icon);
+        DrawRect(new Rect(cx - 28f, cy - 28f, 56f, 6f), icon);
+        DrawRect(new Rect(cx - 28f, cy + 22f, 56f, 6f), icon);
+        DrawRect(new Rect(cx - 28f, cy - 28f, 6f, 56f), icon);
+        DrawRect(new Rect(cx + 22f, cy - 28f, 6f, 56f), icon);
     }
 
     private void DrawPauseMenu()
@@ -603,7 +612,13 @@ public class GameUIBootstrap : MonoBehaviour
         ambientMusic.loop = true;
         ambientMusic.playOnAwake = false;
         ambientMusic.spatialBlend = 0f;
-        ambientMusic.clip = CreateAmbientClip();
+        ambientMusic.clip = Resources.Load<AudioClip>("Audio/CaCO3");
+
+        if (ambientMusic.clip == null)
+        {
+            ambientMusic.clip = CreateAmbientClip();
+        }
+
         ApplyAudioSettings();
         ambientMusic.Play();
     }
