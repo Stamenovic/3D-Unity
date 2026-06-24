@@ -1,0 +1,648 @@
+using UnityEngine;
+using UnityEngine.SceneManagement;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
+public class GameUIBootstrap : MonoBehaviour
+{
+    private const string RootName = "Runtime Game UI";
+
+    private static readonly Color DeepSpace = new Color(0.01f, 0.015f, 0.025f, 0.84f);
+    private static readonly Color PanelGlass = new Color(0.035f, 0.055f, 0.075f, 0.78f);
+    private static readonly Color Cyan = new Color(0.1f, 0.92f, 1f, 1f);
+    private static readonly Color SoftCyan = new Color(0.35f, 0.9f, 1f, 0.92f);
+    private static readonly Color Amber = new Color(1f, 0.66f, 0.18f, 1f);
+    private static readonly Color MutedText = new Color(0.64f, 0.78f, 0.84f, 0.95f);
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void CreateUI()
+    {
+        if (FindFirstObjectByType<GameUIBootstrap>() != null)
+        {
+            return;
+        }
+
+        GameObject root = new GameObject(RootName);
+        DontDestroyOnLoad(root);
+        root.AddComponent<GameUIBootstrap>();
+    }
+
+    private PlayerRigidbodyMovement player;
+    private Texture2D whiteTexture;
+    private GUIStyle titleStyle;
+    private GUIStyle largeStyle;
+    private GUIStyle labelStyle;
+    private GUIStyle smallStyle;
+    private GUIStyle missionTitleStyle;
+    private GUIStyle hintStyle;
+    private GUIStyle controlsStyle;
+    private GUIStyle commandTitleStyle;
+    private GUIStyle subtitleStyle;
+    private GUIStyle buttonStyle;
+    private AudioSource ambientMusic;
+    private bool missionStarted;
+    private bool isPaused;
+    private bool settingsOpen;
+    private bool musicEnabled = true;
+    private bool specialEffectsEnabled = true;
+    private float musicVolume = 0.35f;
+    private float effectsIntensity = 0.8f;
+
+    private void Awake()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        whiteTexture = Texture2D.whiteTexture;
+        CreateAmbientMusic();
+        FindPlayer();
+        ShowMainMenu();
+    }
+
+    private void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (settingsOpen)
+            {
+                settingsOpen = false;
+            }
+            else if (missionStarted)
+            {
+                SetPaused(!isPaused);
+            }
+        }
+
+        if (player == null)
+        {
+            FindPlayer();
+        }
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        FindPlayer();
+        ShowMainMenu();
+    }
+
+    private void FindPlayer()
+    {
+        player = FindFirstObjectByType<PlayerRigidbodyMovement>();
+    }
+
+    private void BuildStyles()
+    {
+        titleStyle = CreateStyle(15, FontStyle.Bold, Cyan, TextAnchor.UpperLeft);
+        largeStyle = CreateStyle(34, FontStyle.Bold, Color.white, TextAnchor.UpperLeft);
+        labelStyle = CreateStyle(18, FontStyle.Bold, Color.white, TextAnchor.UpperLeft);
+        smallStyle = CreateStyle(14, FontStyle.Normal, MutedText, TextAnchor.UpperLeft);
+        missionTitleStyle = CreateStyle(15, FontStyle.Bold, Amber, TextAnchor.UpperLeft);
+        hintStyle = CreateStyle(13, FontStyle.Bold, SoftCyan, TextAnchor.MiddleRight);
+        controlsStyle = CreateStyle(15, FontStyle.Bold, MutedText, TextAnchor.MiddleCenter);
+        commandTitleStyle = CreateStyle(34, FontStyle.Bold, Cyan, TextAnchor.MiddleCenter);
+        subtitleStyle = CreateStyle(14, FontStyle.Bold, Amber, TextAnchor.MiddleCenter);
+
+        buttonStyle = new GUIStyle(GUI.skin.button);
+        buttonStyle.fontSize = 18;
+        buttonStyle.fontStyle = FontStyle.Bold;
+        buttonStyle.normal.textColor = Color.white;
+        buttonStyle.hover.textColor = Cyan;
+        buttonStyle.active.textColor = Amber;
+        buttonStyle.alignment = TextAnchor.MiddleCenter;
+        buttonStyle.padding = new RectOffset(12, 12, 8, 8);
+    }
+
+    private GUIStyle CreateStyle(int size, FontStyle style, Color color, TextAnchor alignment)
+    {
+        GUIStyle guiStyle = new GUIStyle(GUI.skin.label);
+        guiStyle.fontSize = size;
+        guiStyle.fontStyle = style;
+        guiStyle.normal.textColor = color;
+        guiStyle.alignment = alignment;
+        guiStyle.wordWrap = false;
+        return guiStyle;
+    }
+
+    private void OnGUI()
+    {
+        if (titleStyle == null)
+        {
+            BuildStyles();
+        }
+
+        if (!missionStarted)
+        {
+            if (settingsOpen)
+            {
+                DrawSettingsMenu(false);
+            }
+            else
+            {
+                DrawMainMenu();
+            }
+
+            return;
+        }
+
+        DrawTelemetryPanel();
+        DrawMissionPanel();
+        DrawControlStrip();
+
+        if (specialEffectsEnabled)
+        {
+            DrawReticle();
+        }
+
+        if (isPaused)
+        {
+            if (settingsOpen)
+            {
+                DrawSettingsMenu(true);
+            }
+            else
+            {
+                DrawPauseMenu();
+            }
+        }
+    }
+
+    private void DrawMainMenu()
+    {
+        DrawMenuBackdrop();
+
+        Rect panel = new Rect((Screen.width - 560f) * 0.5f, (Screen.height - 430f) * 0.5f, 560f, 430f);
+        DrawPanel(panel, new Color(0.02f, 0.04f, 0.06f, 0.94f), Cyan);
+
+        GUIStyle mainTitle = CreateStyle(38, FontStyle.Bold, Cyan, TextAnchor.MiddleCenter);
+        GUIStyle mainSubtitle = CreateStyle(15, FontStyle.Bold, Amber, TextAnchor.MiddleCenter);
+        GUIStyle body = CreateStyle(14, FontStyle.Normal, MutedText, TextAnchor.MiddleCenter);
+
+        GUI.Label(new Rect(panel.x + 44f, panel.y + 46f, 472f, 52f), "ORBITAL TRAINING", mainTitle);
+        GUI.Label(new Rect(panel.x + 44f, panel.y + 96f, 472f, 28f), "EVA MOBILITY SIMULATION", mainSubtitle);
+        GUI.Label(new Rect(panel.x + 64f, panel.y + 138f, 432f, 48f), "Initialize suit systems, calibrate movement and verify animation synchronization.", body);
+
+        if (GUI.Button(new Rect(panel.x + 110f, panel.y + 214f, 340f, 50f), "STARTUJ MISIJU", buttonStyle))
+        {
+            StartMission();
+        }
+
+        if (GUI.Button(new Rect(panel.x + 110f, panel.y + 284f, 340f, 50f), "PODESAVANJA", buttonStyle))
+        {
+            settingsOpen = true;
+        }
+
+        if (GUI.Button(new Rect(panel.x + 110f, panel.y + 354f, 340f, 50f), "EXIT", buttonStyle))
+        {
+            ExitPlayMode();
+        }
+    }
+
+    private void DrawSettingsMenu(bool fromPause)
+    {
+        DrawMenuBackdrop();
+
+        Matrix4x4 previousMatrix = GUI.matrix;
+        const float virtualWidth = 1280f;
+        const float virtualHeight = 720f;
+        float scale = Mathf.Min(Screen.width / virtualWidth, Screen.height / virtualHeight);
+        Vector3 offset = new Vector3((Screen.width - virtualWidth * scale) * 0.5f, (Screen.height - virtualHeight * scale) * 0.5f, 0f);
+        GUI.matrix = Matrix4x4.TRS(offset, Quaternion.identity, new Vector3(scale, scale, 1f));
+
+        Rect panel = new Rect(240f, 118f, 800f, 510f);
+        Rect titlePlate = new Rect(450f, 28f, 380f, 70f);
+
+        DrawPanel(panel, new Color(0.018f, 0.055f, 0.075f, 0.78f), Cyan);
+        DrawPanel(titlePlate, new Color(0.02f, 0.08f, 0.1f, 0.88f), Cyan);
+
+        GUIStyle title = CreateStyle(38, FontStyle.Bold, SoftCyan, TextAnchor.MiddleCenter);
+        GUIStyle section = CreateStyle(28, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+        GUIStyle rowTitle = CreateStyle(26, FontStyle.Bold, SoftCyan, TextAnchor.UpperLeft);
+        GUIStyle checkboxStyle = CreateStyle(22, FontStyle.Bold, Color.white, TextAnchor.MiddleLeft);
+
+        GUI.Label(titlePlate, "PODEŠAVANJA", title);
+        GUI.Label(new Rect(panel.x + 40f, panel.y + 18f, panel.width - 80f, 44f), "ZVUK", section);
+        DrawRect(new Rect(panel.x + 42f, panel.y + 64f, panel.width - 84f, 2f), new Color(Cyan.r, Cyan.g, Cyan.b, 0.72f));
+
+        float rowTop = panel.y + 126f;
+        float rowGap = 178f;
+        float iconSize = 142f;
+        float left = panel.x + 64f;
+        float sliderLeft = panel.x + 318f;
+        float sliderWidth = panel.width - 380f;
+
+        GUI.Label(new Rect(left, rowTop - 36f, 250f, 34f), "POZADINSKA MUZIKA", rowTitle);
+        DrawIconBox(new Rect(left, rowTop, iconSize, iconSize), true);
+        musicVolume = DrawHologramSlider(new Rect(sliderLeft, rowTop + 34f, sliderWidth, 56f), musicVolume);
+        musicEnabled = DrawHologramCheckbox(new Rect(sliderLeft, rowTop + 102f, 34f, 34f), musicEnabled);
+        GUI.Label(new Rect(sliderLeft + 48f, rowTop + 100f, 360f, 38f), "UKLJUČI/ISKLJUČI MUZIKU", checkboxStyle);
+
+        float effectsTop = rowTop + rowGap;
+        GUI.Label(new Rect(left, effectsTop - 36f, 250f, 34f), "SPECIJALNI EFEKTI", rowTitle);
+        DrawIconBox(new Rect(left, effectsTop, iconSize, iconSize), false);
+        effectsIntensity = DrawHologramSlider(new Rect(sliderLeft, effectsTop + 34f, sliderWidth, 56f), effectsIntensity);
+        specialEffectsEnabled = DrawHologramCheckbox(new Rect(sliderLeft, effectsTop + 102f, 34f, 34f), specialEffectsEnabled);
+        GUI.Label(new Rect(sliderLeft + 48f, effectsTop + 100f, 360f, 38f), "UKLJUČI/ISKLJUČI EFEKTE", checkboxStyle);
+
+        ApplyAudioSettings();
+
+        Rect backButton = new Rect(panel.xMax - 190f, panel.yMax - 76f, 150f, 48f);
+        if (GUI.Button(backButton, "[POVRATAK]", buttonStyle))
+        {
+            settingsOpen = false;
+        }
+
+        GUI.matrix = previousMatrix;
+    }
+
+    private void DrawTelemetryPanel()
+    {
+        Rect panel = new Rect(28f, 28f, 370f, 182f);
+        DrawPanel(panel, PanelGlass, Cyan);
+
+        GUI.Label(new Rect(panel.x + 20f, panel.y + 16f, 320f, 24f), "EVA SUIT HUD // MOBILITY", titleStyle);
+
+        string speed = player == null ? "--" : player.CurrentSpeed.ToString("0.00");
+        GUI.Label(new Rect(panel.x + 20f, panel.y + 48f, 320f, 42f), "SPD " + speed + " m/s", largeStyle);
+
+        float speed01 = player == null ? 0f : Mathf.Clamp01(player.CurrentSpeed / 6f);
+        Color stateColor = GetStateColor();
+        Rect barBack = new Rect(panel.x + 20f, panel.y + 100f, 318f, 12f);
+        DrawRect(barBack, new Color(0f, 0.12f, 0.16f, 0.9f));
+        DrawRect(new Rect(barBack.x, barBack.y, barBack.width * speed01, barBack.height), stateColor);
+
+        DrawRect(new Rect(panel.x + 20f, panel.y + 128f, 10f, 28f), stateColor);
+        GUI.Label(new Rect(panel.x + 40f, panel.y + 124f, 310f, 30f), GetMovementState(), labelStyle);
+        GUI.Label(new Rect(panel.x + 20f, panel.y + 158f, 330f, 20f), "ZONE: MAIN CORRIDOR  |  SIGNAL: NOMINAL", smallStyle);
+    }
+
+    private void DrawMissionPanel()
+    {
+        Rect panel = new Rect(Screen.width - 418f, 28f, 390f, 150f);
+        DrawPanel(panel, DeepSpace, Amber);
+
+        GUI.Label(new Rect(panel.x + 20f, panel.y + 16f, 340f, 24f), "MISSION OBJECTIVE", missionTitleStyle);
+        GUI.Label(new Rect(panel.x + 20f, panel.y + 48f, 340f, 28f), "Calibrate movement sync", labelStyle);
+        GUI.Label(new Rect(panel.x + 20f, panel.y + 82f, 340f, 22f), "Walk, sprint, jump and verify animation response.", smallStyle);
+
+        GUI.Label(new Rect(panel.x + 20f, panel.y + 116f, 340f, 22f), "ESC // SYSTEM MENU", hintStyle);
+    }
+
+    private void DrawControlStrip()
+    {
+        Rect strip = new Rect(28f, Screen.height - 82f, 560f, 54f);
+        DrawPanel(strip, new Color(0.015f, 0.025f, 0.035f, 0.72f), Cyan);
+
+        GUI.Label(strip, "WASD MOVE    SHIFT BOOST    SPACE JUMP    MOUSE LOOK", controlsStyle);
+    }
+
+    private void DrawReticle()
+    {
+        float cx = Screen.width * 0.5f;
+        float cy = Screen.height * 0.5f;
+
+        DrawRect(new Rect(cx - 1f, cy - 40f, 2f, 18f), Cyan);
+        DrawRect(new Rect(cx - 1f, cy + 22f, 2f, 18f), Cyan);
+        DrawRect(new Rect(cx - 40f, cy - 1f, 18f, 2f), Cyan);
+        DrawRect(new Rect(cx + 22f, cy - 1f, 18f, 2f), Cyan);
+        DrawRect(new Rect(cx - 2f, cy - 2f, 4f, 4f), Amber);
+    }
+
+    private float DrawHologramSlider(Rect rect, float value)
+    {
+        Rect hitRect = new Rect(rect.x, rect.y + 8f, rect.width, 38f);
+        Event current = Event.current;
+        Vector3 sliderMousePoint = GUI.matrix.inverse.MultiplyPoint(current.mousePosition);
+        Vector2 mousePosition = new Vector2(sliderMousePoint.x, sliderMousePoint.y);
+
+        if ((current.type == EventType.MouseDown || current.type == EventType.MouseDrag) && hitRect.Contains(mousePosition))
+        {
+            value = Mathf.Clamp01((mousePosition.x - rect.x) / rect.width);
+            current.Use();
+        }
+
+        Rect track = new Rect(rect.x, rect.y + 19f, rect.width, 18f);
+        DrawRect(track, new Color(0f, 0.13f, 0.17f, 0.96f));
+        DrawBorder(track, new Color(Cyan.r, Cyan.g, Cyan.b, 0.75f), 2f);
+
+        float fillWidth = track.width * value;
+        DrawRect(new Rect(track.x + 3f, track.y + 3f, Mathf.Max(0f, fillWidth - 6f), track.height - 6f), new Color(Cyan.r, Cyan.g, Cyan.b, 0.72f));
+        DrawRect(new Rect(track.x + 3f, track.y + 6f, Mathf.Max(0f, fillWidth - 6f), 3f), new Color(0.78f, 1f, 1f, 0.95f));
+
+        for (int i = 0; i <= 40; i++)
+        {
+            float x = track.x + (track.width / 40f) * i;
+            float height = i % 5 == 0 ? 12f : 7f;
+            DrawRect(new Rect(x, track.yMax + 8f, 1f, height), new Color(Cyan.r, Cyan.g, Cyan.b, 0.55f));
+        }
+
+        float knobX = track.x + track.width * value;
+        Rect knob = new Rect(knobX - 13f, track.y - 8f, 26f, 40f);
+        DrawRect(knob, new Color(0.75f, 1f, 1f, 0.88f));
+        DrawBorder(knob, new Color(Cyan.r, Cyan.g, Cyan.b, 1f), 2f);
+
+        GUIStyle percentStyle = CreateStyle(12, FontStyle.Normal, MutedText, TextAnchor.UpperLeft);
+        GUI.Label(new Rect(rect.x, track.yMax + 22f, 60f, 18f), "0%", percentStyle);
+        GUI.Label(new Rect(rect.x + rect.width * 0.5f - 22f, track.yMax + 22f, 70f, 18f), Mathf.RoundToInt(value * 100f) + "%", percentStyle);
+        GUI.Label(new Rect(rect.xMax - 42f, track.yMax + 22f, 60f, 18f), "100%", percentStyle);
+
+        return value;
+    }
+
+    private bool DrawHologramCheckbox(Rect rect, bool value)
+    {
+        Event current = Event.current;
+        Vector3 checkboxMousePoint = GUI.matrix.inverse.MultiplyPoint(current.mousePosition);
+        Vector2 mousePosition = new Vector2(checkboxMousePoint.x, checkboxMousePoint.y);
+
+        if (current.type == EventType.MouseDown && rect.Contains(mousePosition))
+        {
+            value = !value;
+            current.Use();
+        }
+
+        DrawRect(rect, new Color(0f, 0.11f, 0.14f, 0.88f));
+        DrawBorder(rect, new Color(Cyan.r, Cyan.g, Cyan.b, 0.92f), 3f);
+
+        if (value)
+        {
+            DrawRect(new Rect(rect.x + 8f, rect.y + 18f, 6f, 12f), SoftCyan);
+            DrawRect(new Rect(rect.x + 13f, rect.y + 24f, 7f, 6f), SoftCyan);
+            DrawRect(new Rect(rect.x + 19f, rect.y + 10f, 6f, 20f), SoftCyan);
+        }
+
+        return value;
+    }
+
+    private void DrawIconBox(Rect rect, bool musicIcon)
+    {
+        DrawPanel(rect, new Color(0.02f, 0.09f, 0.12f, 0.58f), Cyan);
+
+        if (musicIcon)
+        {
+            DrawMusicIcon(rect);
+        }
+        else
+        {
+            DrawEffectsIcon(rect);
+        }
+    }
+
+    private void DrawMusicIcon(Rect rect)
+    {
+        Color icon = new Color(SoftCyan.r, SoftCyan.g, SoftCyan.b, 0.95f);
+        float x = rect.x + 48f;
+        float y = rect.y + 38f;
+
+        DrawRect(new Rect(x + 36f, y, 8f, 58f), icon);
+        DrawRect(new Rect(x + 36f, y, 42f, 8f), icon);
+        DrawRect(new Rect(x + 70f, y + 8f, 8f, 48f), icon);
+        DrawRect(new Rect(x + 18f, y + 54f, 34f, 20f), icon);
+        DrawRect(new Rect(x + 52f, y + 68f, 34f, 20f), icon);
+        DrawRect(new Rect(x + 92f, y + 50f, 8f, 38f), icon);
+        DrawRect(new Rect(x + 104f, y + 42f, 6f, 54f), new Color(icon.r, icon.g, icon.b, 0.7f));
+    }
+
+    private void DrawEffectsIcon(Rect rect)
+    {
+        Color icon = new Color(SoftCyan.r, SoftCyan.g, SoftCyan.b, 0.95f);
+        float cx = rect.center.x - 14f;
+        float cy = rect.center.y - 4f;
+
+        DrawRect(new Rect(cx - 46f, cy - 3f, 92f, 6f), icon);
+        DrawRect(new Rect(cx - 3f, cy - 46f, 6f, 92f), icon);
+        DrawRect(new Rect(cx - 34f, cy - 34f, 68f, 6f), icon);
+        DrawRect(new Rect(cx - 34f, cy + 28f, 68f, 6f), icon);
+        DrawRect(new Rect(cx - 34f, cy - 34f, 6f, 68f), icon);
+        DrawRect(new Rect(cx + 28f, cy - 34f, 6f, 68f), icon);
+        DrawRect(new Rect(rect.x + 100f, rect.y + 78f, 8f, 38f), icon);
+        DrawRect(new Rect(rect.x + 112f, rect.y + 70f, 6f, 54f), new Color(icon.r, icon.g, icon.b, 0.7f));
+    }
+
+    private void DrawPauseMenu()
+    {
+        DrawRect(new Rect(0f, 0f, Screen.width, Screen.height), new Color(0f, 0.005f, 0.015f, 0.82f));
+
+        Rect panel = new Rect((Screen.width - 500f) * 0.5f, (Screen.height - 390f) * 0.5f, 500f, 390f);
+        DrawPanel(panel, new Color(0.025f, 0.045f, 0.065f, 0.96f), Cyan);
+
+        GUI.Label(new Rect(panel.x + 40f, panel.y + 30f, 420f, 48f), "COMMAND DECK", commandTitleStyle);
+
+        GUI.Label(new Rect(panel.x + 40f, panel.y + 78f, 420f, 26f), "SIMULATION PAUSED", subtitleStyle);
+
+        if (GUI.Button(new Rect(panel.x + 80f, panel.y + 128f, 340f, 48f), "RESUME MISSION", buttonStyle))
+        {
+            SetPaused(false);
+        }
+
+        if (GUI.Button(new Rect(panel.x + 80f, panel.y + 188f, 340f, 48f), "PODESAVANJA", buttonStyle))
+        {
+            settingsOpen = true;
+        }
+
+        if (GUI.Button(new Rect(panel.x + 80f, panel.y + 248f, 340f, 48f), "RESTART SECTOR", buttonStyle))
+        {
+            RestartScene();
+        }
+
+        if (GUI.Button(new Rect(panel.x + 80f, panel.y + 308f, 340f, 48f), "EXIT SIMULATION", buttonStyle))
+        {
+            ExitPlayMode();
+        }
+    }
+
+    private string GetMovementState()
+    {
+        if (player == null)
+        {
+            return "NO PLAYER SIGNAL";
+        }
+
+        if (!player.IsGrounded)
+        {
+            return "AIRBORNE VECTOR  //  GROUND LOST";
+        }
+
+        if (player.IsRunning)
+        {
+            return "BOOST RUN  //  GROUND LOCK";
+        }
+
+        if (player.HasMovementInput)
+        {
+            return "MOTION ACTIVE  //  GROUND LOCK";
+        }
+
+        return "IDLE STANDBY  //  GROUND LOCK";
+    }
+
+    private Color GetStateColor()
+    {
+        if (player == null || !player.IsGrounded)
+        {
+            return Amber;
+        }
+
+        if (player.IsRunning)
+        {
+            return Cyan;
+        }
+
+        return SoftCyan;
+    }
+
+    private void DrawPanel(Rect rect, Color fillColor, Color accentColor)
+    {
+        DrawRect(rect, fillColor);
+        DrawBorder(rect, new Color(accentColor.r, accentColor.g, accentColor.b, 0.45f), 1f);
+        DrawCornerBrackets(rect, accentColor);
+    }
+
+    private void DrawBorder(Rect rect, Color color, float thickness)
+    {
+        DrawRect(new Rect(rect.x, rect.y, rect.width, thickness), color);
+        DrawRect(new Rect(rect.x, rect.yMax - thickness, rect.width, thickness), color);
+        DrawRect(new Rect(rect.x, rect.y, thickness, rect.height), color);
+        DrawRect(new Rect(rect.xMax - thickness, rect.y, thickness, rect.height), color);
+    }
+
+    private void DrawCornerBrackets(Rect rect, Color color)
+    {
+        float length = 42f;
+        float inset = 10f;
+        float thickness = 3f;
+        Color bracket = new Color(color.r, color.g, color.b, 0.9f);
+
+        DrawRect(new Rect(rect.x + inset, rect.y + inset, length, thickness), bracket);
+        DrawRect(new Rect(rect.x + inset, rect.y + inset, thickness, length), bracket);
+        DrawRect(new Rect(rect.xMax - inset - length, rect.y + inset, length, thickness), bracket);
+        DrawRect(new Rect(rect.xMax - inset - thickness, rect.y + inset, thickness, length), bracket);
+        DrawRect(new Rect(rect.x + inset, rect.yMax - inset - thickness, length, thickness), bracket);
+        DrawRect(new Rect(rect.x + inset, rect.yMax - inset - length, thickness, length), bracket);
+        DrawRect(new Rect(rect.xMax - inset - length, rect.yMax - inset - thickness, length, thickness), bracket);
+        DrawRect(new Rect(rect.xMax - inset - thickness, rect.yMax - inset - length, thickness, length), bracket);
+    }
+
+    private void DrawRect(Rect rect, Color color)
+    {
+        Color previousColor = GUI.color;
+        GUI.color = color;
+        GUI.DrawTexture(rect, whiteTexture);
+        GUI.color = previousColor;
+    }
+
+    private void DrawMenuBackdrop()
+    {
+        DrawRect(new Rect(0f, 0f, Screen.width, Screen.height), new Color(0f, 0.006f, 0.018f, 0.68f));
+
+        if (!specialEffectsEnabled)
+        {
+            return;
+        }
+
+        Color lineColor = new Color(Cyan.r, Cyan.g, Cyan.b, 0.05f * effectsIntensity);
+        for (float y = 0f; y < Screen.height; y += 18f)
+        {
+            DrawRect(new Rect(0f, y, Screen.width, 1f), lineColor);
+        }
+
+        DrawRect(new Rect(0f, Screen.height * 0.5f - 1f, Screen.width, 2f), new Color(Amber.r, Amber.g, Amber.b, 0.16f * effectsIntensity));
+    }
+
+    private void CreateAmbientMusic()
+    {
+        ambientMusic = gameObject.AddComponent<AudioSource>();
+        ambientMusic.loop = true;
+        ambientMusic.playOnAwake = false;
+        ambientMusic.spatialBlend = 0f;
+        ambientMusic.clip = CreateAmbientClip();
+        ApplyAudioSettings();
+        ambientMusic.Play();
+    }
+
+    private AudioClip CreateAmbientClip()
+    {
+        int sampleRate = 44100;
+        int sampleCount = sampleRate * 2;
+        float[] samples = new float[sampleCount];
+
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float t = (float)i / sampleRate;
+            samples[i] = Mathf.Sin(t * 42f) * 0.18f + Mathf.Sin(t * 73f) * 0.08f;
+        }
+
+        AudioClip clip = AudioClip.Create("Procedural Space Ambience", sampleCount, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
+    }
+
+    private void ApplyAudioSettings()
+    {
+        if (ambientMusic == null)
+        {
+            return;
+        }
+
+        ambientMusic.mute = !musicEnabled;
+        ambientMusic.volume = musicVolume;
+    }
+
+    private void ShowMainMenu()
+    {
+        missionStarted = false;
+        isPaused = false;
+        settingsOpen = false;
+        SetGameplayActive(false);
+        Time.timeScale = 0f;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    private void StartMission()
+    {
+        missionStarted = true;
+        settingsOpen = false;
+        SetGameplayActive(true);
+        SetPaused(false);
+    }
+
+    private void SetGameplayActive(bool active)
+    {
+        foreach (PlayerRigidbodyMovement movement in FindObjectsByType<PlayerRigidbodyMovement>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            movement.enabled = active;
+        }
+
+        foreach (CameraOrbitTarget cameraTarget in FindObjectsByType<CameraOrbitTarget>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            cameraTarget.enabled = active;
+        }
+    }
+
+    private void SetPaused(bool paused)
+    {
+        isPaused = paused;
+        Time.timeScale = paused ? 0f : 1f;
+        Cursor.lockState = paused ? CursorLockMode.None : CursorLockMode.Locked;
+        Cursor.visible = paused;
+    }
+
+    private void RestartScene()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    private void ExitPlayMode()
+    {
+#if UNITY_EDITOR
+        EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+}

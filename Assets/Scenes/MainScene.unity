@@ -458,7 +458,7 @@ MonoBehaviour:
   groundSensor: {fileID: 1174717474}
   runKey: 304
   jumpKey: 32
-  showDebugInfo: 1
+  showDebugInfo: 0
 --- !u!54 &337933773
 Rigidbody:
   m_ObjectHideFlags: 0

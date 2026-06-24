@@ -32,6 +32,8 @@ public class PlayerRigidbodyMovement : MonoBehaviour
 
     public float CurrentSpeed { get; private set; }
     public bool IsGrounded => groundSensor != null && groundSensor.IsGrounded;
+    public bool IsRunning => wantsToRun && CurrentSpeed > 0.1f;
+    public bool HasMovementInput => moveInput.sqrMagnitude > 0.01f;
 
     private void Awake()
     {
