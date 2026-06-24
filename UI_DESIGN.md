@@ -19,6 +19,7 @@ Projekat je o kontroleru karaktera i sinhronizaciji animacija kretanja u 3D pros
   - Gameplay je pauziran dok igrac ne klikne `STARTUJ MISIJU`.
   - Dugme `PODESAVANJA` otvara audio i visual FX podesavanja.
   - Dugme `EXIT` u Unity editoru izlazi iz Play Mode-a.
+  - Koristi cistu sci-fi pozadinu bez dodatnog opisnog teksta preko sredine panela.
 
 - Top-left panel: `EVA SUIT HUD // MOBILITY`
   - Prikazuje brzinu karaktera u m/s.
@@ -58,11 +59,9 @@ Projekat je o kontroleru karaktera i sinhronizaciji animacija kretanja u 3D pros
   - Ukljucuje ili iskljucuje dodatne HUD efekte kao sto su reticle i scanline overlay.
   - Slider kontrolise intenzitet efekata.
 - Visual style:
-  - Veliki centralni hologramski panel kao brodski terminal.
-  - Naslov `PODEŠAVANJA` je u zasebnoj gornjoj plocici.
-  - Sekcija `ZVUK` deli panel horizontalnom cyan linijom.
-  - Levo su velike ikonice za muziku i efekte, desno slideri i checkbox kontrole.
-  - `[POVRATAK]` je dole desno, kao sistemska komanda.
+  - Meniji koriste `Assets/UI/MenuBackground.png` kao punu sci-fi pozadinu.
+  - Settings panel, interaktivni slideri, checkbox-i i `[POVRATAK]` dugme su nacrtani preko ciste pozadine, tako da nema dupliranja UI elemenata.
+  - Dugmad imaju proziran cyan okvir, hover sjaj i zadrzavaju sci-fi terminal stil.
 
 ## User flow
 

@@ -1,3 +1,4 @@
+using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 #if UNITY_EDITOR
@@ -30,6 +31,7 @@ public class GameUIBootstrap : MonoBehaviour
 
     private PlayerRigidbodyMovement player;
     private Texture2D whiteTexture;
+    private Texture2D menuBackground;
     private GUIStyle titleStyle;
     private GUIStyle largeStyle;
     private GUIStyle labelStyle;
@@ -53,6 +55,7 @@ public class GameUIBootstrap : MonoBehaviour
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
         whiteTexture = Texture2D.whiteTexture;
+        LoadMenuBackground();
         CreateAmbientMusic();
         FindPlayer();
         ShowMainMenu();
@@ -172,30 +175,28 @@ public class GameUIBootstrap : MonoBehaviour
 
     private void DrawMainMenu()
     {
-        DrawMenuBackdrop();
+        DrawMenuBackdrop(0.52f);
 
         Rect panel = new Rect((Screen.width - 560f) * 0.5f, (Screen.height - 430f) * 0.5f, 560f, 430f);
-        DrawPanel(panel, new Color(0.02f, 0.04f, 0.06f, 0.94f), Cyan);
+        DrawPanel(panel, new Color(0.004f, 0.015f, 0.02f, 0.78f), Cyan);
 
         GUIStyle mainTitle = CreateStyle(38, FontStyle.Bold, Cyan, TextAnchor.MiddleCenter);
         GUIStyle mainSubtitle = CreateStyle(15, FontStyle.Bold, Amber, TextAnchor.MiddleCenter);
-        GUIStyle body = CreateStyle(14, FontStyle.Normal, MutedText, TextAnchor.MiddleCenter);
 
         GUI.Label(new Rect(panel.x + 44f, panel.y + 46f, 472f, 52f), "ORBITAL TRAINING", mainTitle);
         GUI.Label(new Rect(panel.x + 44f, panel.y + 96f, 472f, 28f), "EVA MOBILITY SIMULATION", mainSubtitle);
-        GUI.Label(new Rect(panel.x + 64f, panel.y + 138f, 432f, 48f), "Initialize suit systems, calibrate movement and verify animation synchronization.", body);
 
-        if (GUI.Button(new Rect(panel.x + 110f, panel.y + 214f, 340f, 50f), "STARTUJ MISIJU", buttonStyle))
+        if (DrawHologramButton(new Rect(panel.x + 110f, panel.y + 188f, 340f, 50f), "START MISSION"))
         {
             StartMission();
         }
 
-        if (GUI.Button(new Rect(panel.x + 110f, panel.y + 284f, 340f, 50f), "PODESAVANJA", buttonStyle))
+        if (DrawHologramButton(new Rect(panel.x + 110f, panel.y + 268f, 340f, 50f), "SETTINGS"))
         {
             settingsOpen = true;
         }
 
-        if (GUI.Button(new Rect(panel.x + 110f, panel.y + 354f, 340f, 50f), "EXIT", buttonStyle))
+        if (DrawHologramButton(new Rect(panel.x + 110f, panel.y + 348f, 340f, 50f), "EXIT"))
         {
             ExitPlayMode();
         }
@@ -203,54 +204,49 @@ public class GameUIBootstrap : MonoBehaviour
 
     private void DrawSettingsMenu(bool fromPause)
     {
-        DrawMenuBackdrop();
-
         Matrix4x4 previousMatrix = GUI.matrix;
-        const float virtualWidth = 1280f;
-        const float virtualHeight = 720f;
+        const float virtualWidth = 1366f;
+        const float virtualHeight = 768f;
         float scale = Mathf.Min(Screen.width / virtualWidth, Screen.height / virtualHeight);
         Vector3 offset = new Vector3((Screen.width - virtualWidth * scale) * 0.5f, (Screen.height - virtualHeight * scale) * 0.5f, 0f);
         GUI.matrix = Matrix4x4.TRS(offset, Quaternion.identity, new Vector3(scale, scale, 1f));
 
-        Rect panel = new Rect(240f, 118f, 800f, 510f);
-        Rect titlePlate = new Rect(450f, 28f, 380f, 70f);
+        DrawMenuBackdropVirtual(0.18f);
 
-        DrawPanel(panel, new Color(0.018f, 0.055f, 0.075f, 0.78f), Cyan);
-        DrawPanel(titlePlate, new Color(0.02f, 0.08f, 0.1f, 0.88f), Cyan);
+        Rect panel = new Rect(258f, 126f, 858f, 538f);
+        Rect titlePlate = new Rect(474f, 30f, 418f, 82f);
 
-        GUIStyle title = CreateStyle(38, FontStyle.Bold, SoftCyan, TextAnchor.MiddleCenter);
-        GUIStyle section = CreateStyle(28, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
-        GUIStyle rowTitle = CreateStyle(26, FontStyle.Bold, SoftCyan, TextAnchor.UpperLeft);
-        GUIStyle checkboxStyle = CreateStyle(22, FontStyle.Bold, Color.white, TextAnchor.MiddleLeft);
+        DrawPanel(panel, new Color(0.01f, 0.055f, 0.075f, 0.62f), Cyan);
+        DrawPanel(titlePlate, new Color(0.02f, 0.09f, 0.12f, 0.72f), Cyan);
 
-        GUI.Label(titlePlate, "PODEŠAVANJA", title);
-        GUI.Label(new Rect(panel.x + 40f, panel.y + 18f, panel.width - 80f, 44f), "ZVUK", section);
-        DrawRect(new Rect(panel.x + 42f, panel.y + 64f, panel.width - 84f, 2f), new Color(Cyan.r, Cyan.g, Cyan.b, 0.72f));
+        GUIStyle title = CreateStyle(42, FontStyle.Bold, SoftCyan, TextAnchor.MiddleCenter);
+        GUIStyle section = CreateStyle(30, FontStyle.Bold, Color.white, TextAnchor.MiddleCenter);
+        GUIStyle rowTitle = CreateStyle(28, FontStyle.Bold, SoftCyan, TextAnchor.UpperLeft);
+        GUIStyle checkboxStyle = CreateStyle(23, FontStyle.Bold, Color.white, TextAnchor.MiddleLeft);
 
-        float rowTop = panel.y + 126f;
-        float rowGap = 178f;
-        float iconSize = 142f;
-        float left = panel.x + 64f;
-        float sliderLeft = panel.x + 318f;
-        float sliderWidth = panel.width - 380f;
+        GUI.Label(titlePlate, "SETTINGS", title);
+        GUI.Label(new Rect(panel.x + 42f, panel.y + 20f, panel.width - 84f, 44f), "SOUND", section);
+        DrawRect(new Rect(panel.x + 42f, panel.y + 66f, panel.width - 84f, 2f), new Color(Cyan.r, Cyan.g, Cyan.b, 0.74f));
 
-        GUI.Label(new Rect(left, rowTop - 36f, 250f, 34f), "POZADINSKA MUZIKA", rowTitle);
-        DrawIconBox(new Rect(left, rowTop, iconSize, iconSize), true);
-        musicVolume = DrawHologramSlider(new Rect(sliderLeft, rowTop + 34f, sliderWidth, 56f), musicVolume);
-        musicEnabled = DrawHologramCheckbox(new Rect(sliderLeft, rowTop + 102f, 34f, 34f), musicEnabled);
-        GUI.Label(new Rect(sliderLeft + 48f, rowTop + 100f, 360f, 38f), "UKLJUČI/ISKLJUČI MUZIKU", checkboxStyle);
+        float rowTop = 236f;
+        float effectsTop = 462f;
+        float left = 324f;
+        GUI.Label(new Rect(left, rowTop - 50f, 270f, 36f), "BACKGROUND MUSIC", rowTitle);
+        DrawIconBox(new Rect(left, rowTop, 142f, 142f), true);
 
-        float effectsTop = rowTop + rowGap;
-        GUI.Label(new Rect(left, effectsTop - 36f, 250f, 34f), "SPECIJALNI EFEKTI", rowTitle);
-        DrawIconBox(new Rect(left, effectsTop, iconSize, iconSize), false);
-        effectsIntensity = DrawHologramSlider(new Rect(sliderLeft, effectsTop + 34f, sliderWidth, 56f), effectsIntensity);
-        specialEffectsEnabled = DrawHologramCheckbox(new Rect(sliderLeft, effectsTop + 102f, 34f, 34f), specialEffectsEnabled);
-        GUI.Label(new Rect(sliderLeft + 48f, effectsTop + 100f, 360f, 38f), "UKLJUČI/ISKLJUČI EFEKTE", checkboxStyle);
+        musicVolume = DrawHologramSlider(new Rect(574f, 258f, 482f, 74f), musicVolume);
+        musicEnabled = DrawHologramCheckbox(new Rect(579f, 357f, 34f, 34f), new Rect(579f, 354f, 420f, 42f), musicEnabled);
+        GUI.Label(new Rect(626f, 354f, 370f, 42f), "MUTE MUSIC", checkboxStyle);
+
+        GUI.Label(new Rect(left, effectsTop - 50f, 270f, 36f), "SPECIAL EFFECTS", rowTitle);
+        DrawIconBox(new Rect(left, effectsTop, 142f, 142f), false);
+        effectsIntensity = DrawHologramSlider(new Rect(574f, 482f, 482f, 74f), effectsIntensity);
+        specialEffectsEnabled = DrawHologramCheckbox(new Rect(579f, 582f, 34f, 34f), new Rect(579f, 579f, 420f, 42f), specialEffectsEnabled);
+        GUI.Label(new Rect(626f, 579f, 370f, 42f), "MUTE EFFECTS", checkboxStyle);
 
         ApplyAudioSettings();
 
-        Rect backButton = new Rect(panel.xMax - 190f, panel.yMax - 76f, 150f, 48f);
-        if (GUI.Button(backButton, "[POVRATAK]", buttonStyle))
+        if (DrawHologramButton(new Rect(960f, 683f, 154f, 58f), "[BACK]"))
         {
             settingsOpen = false;
         }
@@ -311,12 +307,33 @@ public class GameUIBootstrap : MonoBehaviour
         DrawRect(new Rect(cx - 2f, cy - 2f, 4f, 4f), Amber);
     }
 
+    private bool DrawHologramButton(Rect rect, string label)
+    {
+        Vector2 mousePosition = Event.current.mousePosition;
+        bool hover = rect.Contains(mousePosition);
+
+        Color fill = hover
+            ? new Color(0.05f, 0.32f, 0.4f, 0.42f)
+            : new Color(0.01f, 0.08f, 0.11f, 0.32f);
+        Color outline = hover ? new Color(0.72f, 1f, 1f, 1f) : new Color(Cyan.r, Cyan.g, Cyan.b, 0.88f);
+
+        DrawRect(rect, fill);
+        DrawBorder(rect, outline, 2f);
+        DrawCornerBrackets(rect, outline);
+
+        bool clicked = GUI.Button(rect, GUIContent.none, GUIStyle.none);
+
+        GUIStyle labelButtonStyle = CreateStyle(18, FontStyle.Bold, hover ? Color.white : SoftCyan, TextAnchor.MiddleCenter);
+        GUI.Label(rect, label, labelButtonStyle);
+
+        return clicked;
+    }
+
     private float DrawHologramSlider(Rect rect, float value)
     {
         Rect hitRect = new Rect(rect.x, rect.y + 8f, rect.width, 38f);
         Event current = Event.current;
-        Vector3 sliderMousePoint = GUI.matrix.inverse.MultiplyPoint(current.mousePosition);
-        Vector2 mousePosition = new Vector2(sliderMousePoint.x, sliderMousePoint.y);
+        Vector2 mousePosition = current.mousePosition;
 
         if ((current.type == EventType.MouseDown || current.type == EventType.MouseDrag) && hitRect.Contains(mousePosition))
         {
@@ -349,19 +366,16 @@ public class GameUIBootstrap : MonoBehaviour
         GUI.Label(new Rect(rect.x + rect.width * 0.5f - 22f, track.yMax + 22f, 70f, 18f), Mathf.RoundToInt(value * 100f) + "%", percentStyle);
         GUI.Label(new Rect(rect.xMax - 42f, track.yMax + 22f, 60f, 18f), "100%", percentStyle);
 
+        value = GUI.HorizontalSlider(hitRect, value, 0f, 1f, GUIStyle.none, GUIStyle.none);
+
         return value;
     }
 
-    private bool DrawHologramCheckbox(Rect rect, bool value)
+    private bool DrawHologramCheckbox(Rect rect, Rect hitRect, bool value)
     {
-        Event current = Event.current;
-        Vector3 checkboxMousePoint = GUI.matrix.inverse.MultiplyPoint(current.mousePosition);
-        Vector2 mousePosition = new Vector2(checkboxMousePoint.x, checkboxMousePoint.y);
-
-        if (current.type == EventType.MouseDown && rect.Contains(mousePosition))
+        if (GUI.Button(hitRect, GUIContent.none, GUIStyle.none))
         {
             value = !value;
-            current.Use();
         }
 
         DrawRect(rect, new Color(0f, 0.11f, 0.14f, 0.88f));
@@ -394,32 +408,25 @@ public class GameUIBootstrap : MonoBehaviour
     private void DrawMusicIcon(Rect rect)
     {
         Color icon = new Color(SoftCyan.r, SoftCyan.g, SoftCyan.b, 0.95f);
-        float x = rect.x + 48f;
-        float y = rect.y + 38f;
+        GUIStyle noteStyle = CreateStyle(72, FontStyle.Bold, icon, TextAnchor.MiddleCenter);
+        GUI.Label(new Rect(rect.x + 22f, rect.y + 18f, 74f, 94f), "♪", noteStyle);
 
-        DrawRect(new Rect(x + 36f, y, 8f, 58f), icon);
-        DrawRect(new Rect(x + 36f, y, 42f, 8f), icon);
-        DrawRect(new Rect(x + 70f, y + 8f, 8f, 48f), icon);
-        DrawRect(new Rect(x + 18f, y + 54f, 34f, 20f), icon);
-        DrawRect(new Rect(x + 52f, y + 68f, 34f, 20f), icon);
-        DrawRect(new Rect(x + 92f, y + 50f, 8f, 38f), icon);
-        DrawRect(new Rect(x + 104f, y + 42f, 6f, 54f), new Color(icon.r, icon.g, icon.b, 0.7f));
+        DrawRect(new Rect(rect.x + 86f, rect.y + 70f, 18f, 38f), icon);
+        DrawRect(new Rect(rect.x + 104f, rect.y + 78f, 8f, 22f), icon);
+        DrawRect(new Rect(rect.x + 118f, rect.y + 72f, 5f, 34f), new Color(icon.r, icon.g, icon.b, 0.76f));
+        DrawRect(new Rect(rect.x + 128f, rect.y + 66f, 4f, 46f), new Color(icon.r, icon.g, icon.b, 0.58f));
     }
 
     private void DrawEffectsIcon(Rect rect)
     {
         Color icon = new Color(SoftCyan.r, SoftCyan.g, SoftCyan.b, 0.95f);
-        float cx = rect.center.x - 14f;
-        float cy = rect.center.y - 4f;
+        GUIStyle burstStyle = CreateStyle(78, FontStyle.Bold, icon, TextAnchor.MiddleCenter);
+        GUI.Label(new Rect(rect.x + 8f, rect.y + 18f, rect.width - 16f, 88f), "✦", burstStyle);
 
-        DrawRect(new Rect(cx - 46f, cy - 3f, 92f, 6f), icon);
-        DrawRect(new Rect(cx - 3f, cy - 46f, 6f, 92f), icon);
-        DrawRect(new Rect(cx - 34f, cy - 34f, 68f, 6f), icon);
-        DrawRect(new Rect(cx - 34f, cy + 28f, 68f, 6f), icon);
-        DrawRect(new Rect(cx - 34f, cy - 34f, 6f, 68f), icon);
-        DrawRect(new Rect(cx + 28f, cy - 34f, 6f, 68f), icon);
-        DrawRect(new Rect(rect.x + 100f, rect.y + 78f, 8f, 38f), icon);
-        DrawRect(new Rect(rect.x + 112f, rect.y + 70f, 6f, 54f), new Color(icon.r, icon.g, icon.b, 0.7f));
+        DrawRect(new Rect(rect.x + 86f, rect.y + 82f, 18f, 28f), icon);
+        DrawRect(new Rect(rect.x + 104f, rect.y + 88f, 8f, 16f), icon);
+        DrawRect(new Rect(rect.x + 118f, rect.y + 82f, 5f, 28f), new Color(icon.r, icon.g, icon.b, 0.76f));
+        DrawRect(new Rect(rect.x + 128f, rect.y + 76f, 4f, 40f), new Color(icon.r, icon.g, icon.b, 0.58f));
     }
 
     private void DrawPauseMenu()
@@ -433,22 +440,22 @@ public class GameUIBootstrap : MonoBehaviour
 
         GUI.Label(new Rect(panel.x + 40f, panel.y + 78f, 420f, 26f), "SIMULATION PAUSED", subtitleStyle);
 
-        if (GUI.Button(new Rect(panel.x + 80f, panel.y + 128f, 340f, 48f), "RESUME MISSION", buttonStyle))
+        if (DrawHologramButton(new Rect(panel.x + 80f, panel.y + 128f, 340f, 48f), "RESUME MISSION"))
         {
             SetPaused(false);
         }
 
-        if (GUI.Button(new Rect(panel.x + 80f, panel.y + 188f, 340f, 48f), "PODESAVANJA", buttonStyle))
+        if (DrawHologramButton(new Rect(panel.x + 80f, panel.y + 188f, 340f, 48f), "SETTINGS"))
         {
             settingsOpen = true;
         }
 
-        if (GUI.Button(new Rect(panel.x + 80f, panel.y + 248f, 340f, 48f), "RESTART SECTOR", buttonStyle))
+        if (DrawHologramButton(new Rect(panel.x + 80f, panel.y + 248f, 340f, 48f), "RESTART MISSION"))
         {
             RestartScene();
         }
 
-        if (GUI.Button(new Rect(panel.x + 80f, panel.y + 308f, 340f, 48f), "EXIT SIMULATION", buttonStyle))
+        if (DrawHologramButton(new Rect(panel.x + 80f, panel.y + 308f, 340f, 48f), "EXIT SIMULATION"))
         {
             ExitPlayMode();
         }
@@ -534,9 +541,17 @@ public class GameUIBootstrap : MonoBehaviour
         GUI.color = previousColor;
     }
 
-    private void DrawMenuBackdrop()
+    private void DrawMenuBackdrop(float overlayAlpha)
     {
-        DrawRect(new Rect(0f, 0f, Screen.width, Screen.height), new Color(0f, 0.006f, 0.018f, 0.68f));
+        if (menuBackground != null)
+        {
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), menuBackground, ScaleMode.ScaleAndCrop);
+            DrawRect(new Rect(0f, 0f, Screen.width, Screen.height), new Color(0f, 0.006f, 0.018f, overlayAlpha));
+        }
+        else
+        {
+            DrawRect(new Rect(0f, 0f, Screen.width, Screen.height), new Color(0f, 0.006f, 0.018f, overlayAlpha + 0.24f));
+        }
 
         if (!specialEffectsEnabled)
         {
@@ -548,8 +563,38 @@ public class GameUIBootstrap : MonoBehaviour
         {
             DrawRect(new Rect(0f, y, Screen.width, 1f), lineColor);
         }
+    }
 
-        DrawRect(new Rect(0f, Screen.height * 0.5f - 1f, Screen.width, 2f), new Color(Amber.r, Amber.g, Amber.b, 0.16f * effectsIntensity));
+    private void DrawMenuBackdropVirtual(float overlayAlpha)
+    {
+        Rect full = new Rect(0f, 0f, 1366f, 768f);
+
+        if (menuBackground != null)
+        {
+            GUI.DrawTexture(full, menuBackground, ScaleMode.StretchToFill);
+        }
+        else
+        {
+            DrawRect(full, new Color(0f, 0.006f, 0.018f, 1f));
+        }
+
+        DrawRect(full, new Color(0f, 0.006f, 0.018f, overlayAlpha));
+    }
+
+    private void LoadMenuBackground()
+    {
+        string path = Path.Combine(Application.dataPath, "UI", "MenuBackground.png");
+        if (!File.Exists(path))
+        {
+            return;
+        }
+
+        byte[] imageBytes = File.ReadAllBytes(path);
+        Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        if (texture.LoadImage(imageBytes))
+        {
+            menuBackground = texture;
+        }
     }
 
     private void CreateAmbientMusic()
