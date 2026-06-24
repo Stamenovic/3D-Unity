@@ -22,23 +22,11 @@ Projekat je o kontroleru karaktera i sinhronizaciji animacija kretanja u 3D pros
   - Koristi cistu sci-fi pozadinu bez dodatnog opisnog teksta preko sredine panela.
 
 - Top-left panel: `EVA SUIT HUD // MOBILITY`
-  - Prikazuje brzinu karaktera u m/s.
-  - Ima speed bar koji se puni prema trenutnoj brzini.
-  - Stanje se menja izmedju `IDLE STANDBY`, `MOTION ACTIVE`, `BOOST RUN` i `AIRBORNE VECTOR`.
-  - Grounded status je prikazan kao `GROUND LOCK` ili `GROUND LOST`.
-
-- Top-right panel: `MISSION OBJECTIVE`
-  - Daje projektnu svrhu: kalibracija kretanja i animacija.
-  - Podseca da treba testirati walk, sprint, jump i animacijski odziv.
-  - Sadrzi `ESC // SYSTEM MENU` hint.
-
-- Center reticle:
-  - Mali crosshair daje osecaj kacige/visor-a.
-  - Ne pokriva igraca i ne smeta gameplay-u.
-
-- Bottom-left control strip:
-  - Kratke kontrole: `WASD`, `SHIFT`, `SPACE`, `MOUSE`.
-  - Postavljen dole da ne zaklanja bitne delove scene.
+  - Tokom same igre prikazuje samo informacije trazene specifikacijom.
+  - `SPD`: trenutna brojna vrednost brzine kretanja karaktera.
+  - `MOD`: trenutno aktivni modifikator brzine (`NORMAL`, `SLOWED`, `BOOSTED`).
+  - `TIMER`: odbrojavanje do isteka aktivnog modifikatora.
+  - Usporeni modifikator se aktivira tasterom `Q`, ubrzani tasterom `E`.
 
 ## Pause menu
 

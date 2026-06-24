@@ -151,14 +151,7 @@ public class GameUIBootstrap : MonoBehaviour
             return;
         }
 
-        DrawTelemetryPanel();
-        DrawMissionPanel();
-        DrawControlStrip();
-
-        if (specialEffectsEnabled)
-        {
-            DrawReticle();
-        }
+        DrawGameplayStatusPanel();
 
         if (isPaused)
         {
@@ -258,57 +251,21 @@ public class GameUIBootstrap : MonoBehaviour
         GUI.matrix = previousMatrix;
     }
 
-    private void DrawTelemetryPanel()
+    private void DrawGameplayStatusPanel()
     {
-        Rect panel = new Rect(28f, 28f, 370f, 182f);
+        Rect panel = new Rect(28f, 28f, 320f, 138f);
         DrawPanel(panel, PanelGlass, Cyan);
 
-        GUI.Label(new Rect(panel.x + 20f, panel.y + 16f, 320f, 24f), "EVA SUIT HUD // MOBILITY", titleStyle);
+        GUI.Label(new Rect(panel.x + 18f, panel.y + 12f, 280f, 22f), "MOVEMENT STATUS", titleStyle);
 
         string speed = player == null ? "--" : player.CurrentSpeed.ToString("0.00");
-        GUI.Label(new Rect(panel.x + 20f, panel.y + 48f, 320f, 42f), "SPD " + speed + " m/s", largeStyle);
+        GUI.Label(new Rect(panel.x + 18f, panel.y + 36f, 286f, 36f), "SPD " + speed + " m/s", CreateStyle(28, FontStyle.Bold, Color.white, TextAnchor.UpperLeft));
 
-        float speed01 = player == null ? 0f : Mathf.Clamp01(player.CurrentSpeed / 6f);
-        Color stateColor = GetStateColor();
-        Rect barBack = new Rect(panel.x + 20f, panel.y + 100f, 318f, 12f);
-        DrawRect(barBack, new Color(0f, 0.12f, 0.16f, 0.9f));
-        DrawRect(new Rect(barBack.x, barBack.y, barBack.width * speed01, barBack.height), stateColor);
+        Color modifierColor = GetModifierColor();
+        DrawRect(new Rect(panel.x + 18f, panel.y + 78f, 8f, 24f), modifierColor);
+        GUI.Label(new Rect(panel.x + 34f, panel.y + 75f, 270f, 28f), "MOD: " + GetModifierLabel(), labelStyle);
 
-        DrawRect(new Rect(panel.x + 20f, panel.y + 128f, 10f, 28f), stateColor);
-        GUI.Label(new Rect(panel.x + 40f, panel.y + 124f, 310f, 30f), GetMovementState(), labelStyle);
-        GUI.Label(new Rect(panel.x + 20f, panel.y + 158f, 330f, 20f), "ZONE: MAIN CORRIDOR  |  SIGNAL: NOMINAL", smallStyle);
-    }
-
-    private void DrawMissionPanel()
-    {
-        Rect panel = new Rect(Screen.width - 418f, 28f, 390f, 150f);
-        DrawPanel(panel, DeepSpace, Amber);
-
-        GUI.Label(new Rect(panel.x + 20f, panel.y + 16f, 340f, 24f), "MISSION OBJECTIVE", missionTitleStyle);
-        GUI.Label(new Rect(panel.x + 20f, panel.y + 48f, 340f, 28f), "Calibrate movement sync", labelStyle);
-        GUI.Label(new Rect(panel.x + 20f, panel.y + 82f, 340f, 22f), "Walk, sprint, jump and verify animation response.", smallStyle);
-
-        GUI.Label(new Rect(panel.x + 20f, panel.y + 116f, 340f, 22f), "ESC // SYSTEM MENU", hintStyle);
-    }
-
-    private void DrawControlStrip()
-    {
-        Rect strip = new Rect(28f, Screen.height - 82f, 560f, 54f);
-        DrawPanel(strip, new Color(0.015f, 0.025f, 0.035f, 0.72f), Cyan);
-
-        GUI.Label(strip, "WASD MOVE    SHIFT BOOST    SPACE JUMP    MOUSE LOOK", controlsStyle);
-    }
-
-    private void DrawReticle()
-    {
-        float cx = Screen.width * 0.5f;
-        float cy = Screen.height * 0.5f;
-
-        DrawRect(new Rect(cx - 1f, cy - 40f, 2f, 18f), Cyan);
-        DrawRect(new Rect(cx - 1f, cy + 22f, 2f, 18f), Cyan);
-        DrawRect(new Rect(cx - 40f, cy - 1f, 18f, 2f), Cyan);
-        DrawRect(new Rect(cx + 22f, cy - 1f, 18f, 2f), Cyan);
-        DrawRect(new Rect(cx - 2f, cy - 2f, 4f, 4f), Amber);
+        GUI.Label(new Rect(panel.x + 18f, panel.y + 106f, 286f, 20f), "TIMER: " + GetModifierTimerText(), smallStyle);
     }
 
     private bool DrawHologramButton(Rect rect, string label)
@@ -493,6 +450,46 @@ public class GameUIBootstrap : MonoBehaviour
         }
 
         return "IDLE STANDBY  //  GROUND LOCK";
+    }
+
+    private string GetModifierLabel()
+    {
+        if (player == null)
+        {
+            return "NO SIGNAL";
+        }
+
+        return player.ActiveModifier switch
+        {
+            PlayerRigidbodyMovement.SpeedModifierMode.Slowed => "SLOWED x" + player.ActiveSpeedMultiplier.ToString("0.0"),
+            PlayerRigidbodyMovement.SpeedModifierMode.Boosted => "BOOSTED x" + player.ActiveSpeedMultiplier.ToString("0.0"),
+            _ => "NORMAL x1.0"
+        };
+    }
+
+    private string GetModifierTimerText()
+    {
+        if (player == null || player.ActiveModifier == PlayerRigidbodyMovement.SpeedModifierMode.Normal)
+        {
+            return "--";
+        }
+
+        return player.ModifierTimeRemaining.ToString("0.0") + "s";
+    }
+
+    private Color GetModifierColor()
+    {
+        if (player == null)
+        {
+            return MutedText;
+        }
+
+        return player.ActiveModifier switch
+        {
+            PlayerRigidbodyMovement.SpeedModifierMode.Slowed => Amber,
+            PlayerRigidbodyMovement.SpeedModifierMode.Boosted => Cyan,
+            _ => SoftCyan
+        };
     }
 
     private Color GetStateColor()

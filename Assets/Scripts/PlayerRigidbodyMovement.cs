@@ -4,6 +4,13 @@ using UnityEngine;
 [RequireComponent(typeof(CapsuleCollider))]
 public class PlayerRigidbodyMovement : MonoBehaviour
 {
+    public enum SpeedModifierMode
+    {
+        Normal,
+        Slowed,
+        Boosted
+    }
+
     [Header("Movement")]
     [SerializeField] private float walkSpeed = 3f;
     [SerializeField] private float runSpeed = 6f;
@@ -21,6 +28,13 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private KeyCode runKey = KeyCode.LeftShift;
     [SerializeField] private KeyCode jumpKey = KeyCode.Space;
 
+    [Header("Speed Modifiers")]
+    [SerializeField] private KeyCode slowModifierKey = KeyCode.Q;
+    [SerializeField] private KeyCode boostModifierKey = KeyCode.E;
+    [SerializeField] private float modifierDuration = 6f;
+    [SerializeField] private float slowMultiplier = 0.5f;
+    [SerializeField] private float boostMultiplier = 1.5f;
+
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
 
@@ -29,11 +43,21 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private Vector2 moveInput;
     private bool wantsToRun;
     private bool wantsToJump;
+    private SpeedModifierMode activeModifier = SpeedModifierMode.Normal;
+    private float modifierTimeRemaining;
 
     public float CurrentSpeed { get; private set; }
     public bool IsGrounded => groundSensor != null && groundSensor.IsGrounded;
     public bool IsRunning => wantsToRun && CurrentSpeed > 0.1f;
     public bool HasMovementInput => moveInput.sqrMagnitude > 0.01f;
+    public SpeedModifierMode ActiveModifier => activeModifier;
+    public float ModifierTimeRemaining => modifierTimeRemaining;
+    public float ActiveSpeedMultiplier => activeModifier switch
+    {
+        SpeedModifierMode.Slowed => slowMultiplier,
+        SpeedModifierMode.Boosted => boostMultiplier,
+        _ => 1f
+    };
 
     private void Awake()
     {
@@ -49,6 +73,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private void Update()
     {
         ReadInput();
+        UpdateSpeedModifierTimer();
     }
 
     private void FixedUpdate()
@@ -77,11 +102,21 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         {
             wantsToJump = true;
         }
+
+        if (Input.GetKeyDown(slowModifierKey))
+        {
+            ApplySpeedModifier(SpeedModifierMode.Slowed, modifierDuration);
+        }
+
+        if (Input.GetKeyDown(boostModifierKey))
+        {
+            ApplySpeedModifier(SpeedModifierMode.Boosted, modifierDuration);
+        }
     }
 
     private void Move()
     {
-        float targetSpeed = wantsToRun ? runSpeed : walkSpeed;
+        float targetSpeed = (wantsToRun ? runSpeed : walkSpeed) * ActiveSpeedMultiplier;
 
         Vector3 moveDirection = GetCameraRelativeMoveDirection();
 
@@ -171,6 +206,27 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         if (groundSensor != null)
         {
             groundSensor.ResetContacts();
+        }
+    }
+
+    public void ApplySpeedModifier(SpeedModifierMode modifier, float duration)
+    {
+        activeModifier = modifier;
+        modifierTimeRemaining = Mathf.Max(0f, duration);
+    }
+
+    private void UpdateSpeedModifierTimer()
+    {
+        if (activeModifier == SpeedModifierMode.Normal)
+        {
+            return;
+        }
+
+        modifierTimeRemaining -= Time.deltaTime;
+        if (modifierTimeRemaining <= 0f)
+        {
+            activeModifier = SpeedModifierMode.Normal;
+            modifierTimeRemaining = 0f;
         }
     }
 
