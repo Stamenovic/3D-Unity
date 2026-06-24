@@ -6,13 +6,6 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(PlayerInput))]
 public class PlayerRigidbodyMovement : MonoBehaviour
 {
-    public enum SpeedModifierMode
-    {
-        Normal,
-        Slowed,
-        Boosted
-    }
-
     [Header("Movement")]
     [SerializeField] private float walkSpeed = 3f;
     [SerializeField] private float runSpeed = 6f;
@@ -26,11 +19,6 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private float jumpForce = 6f;
     [SerializeField] private GroundSensor groundSensor;
 
-    [Header("Speed Modifiers")]
-    [SerializeField] private float modifierDuration = 6f;
-    [SerializeField] private float slowMultiplier = 0.5f;
-    [SerializeField] private float boostMultiplier = 1.5f;
-
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
 
@@ -41,25 +29,17 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private Vector2 moveInput;
     private bool wantsToRun;
     private bool wantsToJump;
-    private SpeedModifierMode activeModifier = SpeedModifierMode.Normal;
-    private float modifierTimeRemaining;
 
-    // Speed multipliers — stacked multiplicatively so boost + slow work simultaneously
-    private float timedSpeedMultiplier = 1f;   // set by timed pickups
-    private float zoneSpeedMultiplier = 1f;    // set by trigger zones (no duration)
+    private float timedSpeedMultiplier = 1f;
+    private float zoneSpeedMultiplier = 1f;
+    private float timedEffectEndTime;
 
     public float CurrentSpeed { get; private set; }
     public bool IsGrounded => groundSensor != null && groundSensor.IsGrounded;
     public bool IsRunning => wantsToRun && CurrentSpeed > 0.1f;
     public bool HasMovementInput => moveInput.sqrMagnitude > 0.01f;
-    public SpeedModifierMode ActiveModifier => activeModifier;
-    public float ModifierTimeRemaining => modifierTimeRemaining;
-    public float ActiveSpeedMultiplier => activeModifier switch
-    {
-        SpeedModifierMode.Slowed => slowMultiplier,
-        SpeedModifierMode.Boosted => boostMultiplier,
-        _ => 1f
-    };
+    public float EffectiveSpeedMultiplier => timedSpeedMultiplier * zoneSpeedMultiplier;
+    public float TimedSpeedRemaining => timedSpeedMultiplier != 1f ? Mathf.Max(0f, timedEffectEndTime - Time.time) : 0f;
 
     private void Awake()
     {
@@ -67,9 +47,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         rb.freezeRotation = true;
 
         if (cameraTransform == null && Camera.main != null)
-        {
             cameraTransform = Camera.main.transform;
-        }
 
         playerInput = GetComponent<PlayerInput>();
         sprintAction = playerInput.actions != null
@@ -83,31 +61,18 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         }
     }
 
-    private void Update()
-    {
-        UpdateKeyboardFallbackInput();
-    }
-
     private void OnDestroy()
     {
-        if (sprintAction == null)
-        {
-            return;
-        }
+        if (sprintAction == null) return;
 
         sprintAction.started -= OnSprintStarted;
         sprintAction.canceled -= OnSprintCanceled;
     }
 
-    private void OnSprintStarted(InputAction.CallbackContext context)
-    {
-        wantsToRun = true;
-    }
+    private void OnSprintStarted(InputAction.CallbackContext context) => wantsToRun = true;
+    private void OnSprintCanceled(InputAction.CallbackContext context) => wantsToRun = false;
 
-    private void OnSprintCanceled(InputAction.CallbackContext context)
-    {
-        wantsToRun = false;
-    }
+    // ─── Input Callbacks (called by PlayerInput component) ───────────────────
 
     private void OnMove(InputValue value)
     {
@@ -122,39 +87,17 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private void OnJump(InputValue value)
     {
         if (value.isPressed)
-        {
             wantsToJump = true;
-        }
     }
 
-    private void UpdateKeyboardFallbackInput()
-    {
-        if (Keyboard.current == null)
-        {
-            return;
-        }
-
-        if (sprintAction == null)
-        {
-            wantsToRun =
-                Keyboard.current.leftShiftKey.isPressed ||
-                Keyboard.current.rightShiftKey.isPressed;
-        }
-
-        if (Keyboard.current.spaceKey.wasPressedThisFrame)
-        {
-            wantsToJump = true;
-        }
-    }
+    // ─── Physics ──────────────────────────────────────────────────────────────
 
     private void FixedUpdate()
     {
         Move();
 
         if (wantsToJump && IsGrounded)
-        {
             Jump();
-        }
 
         wantsToJump = false;
     }
@@ -170,12 +113,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
 
         Vector3 currentVelocity = rb.linearVelocity;
 
-        Vector3 currentHorizontalVelocity = new Vector3(
-            currentVelocity.x,
-            0f,
-            currentVelocity.z
-        );
-
+        Vector3 currentHorizontalVelocity = new Vector3(currentVelocity.x, 0f, currentVelocity.z);
         Vector3 targetHorizontalVelocity = moveDirection * targetSpeed;
 
         Vector3 newHorizontalVelocity = Vector3.MoveTowards(
@@ -184,11 +122,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
             acceleration * Time.fixedDeltaTime
         );
 
-        rb.linearVelocity = new Vector3(
-            newHorizontalVelocity.x,
-            currentVelocity.y,
-            newHorizontalVelocity.z
-        );
+        rb.linearVelocity = new Vector3(newHorizontalVelocity.x, currentVelocity.y, newHorizontalVelocity.z);
 
         CurrentSpeed = newHorizontalVelocity.magnitude;
     }
@@ -196,15 +130,10 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private Vector3 GetCameraRelativeMoveDirection()
     {
         if (moveInput.sqrMagnitude < 0.01f)
-        {
             return Vector3.zero;
-        }
 
         if (cameraTransform == null)
-        {
-            Vector3 fallbackDirection = new Vector3(moveInput.x, 0f, moveInput.y);
-            return fallbackDirection.normalized;
-        }
+            return new Vector3(moveInput.x, 0f, moveInput.y).normalized;
 
         Vector3 cameraForward = cameraTransform.forward;
         Vector3 cameraRight = cameraTransform.right;
@@ -215,30 +144,15 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         cameraForward.Normalize();
         cameraRight.Normalize();
 
-        Vector3 moveDirection =
-            cameraRight * moveInput.x +
-            cameraForward * moveInput.y;
-
-        return moveDirection.normalized;
+        return (cameraRight * moveInput.x + cameraForward * moveInput.y).normalized;
     }
 
     private void RotatePlayerTowardsMovement(Vector3 moveDirection)
     {
-        if (moveDirection.sqrMagnitude < 0.01f)
-        {
-            return;
-        }
+        if (moveDirection.sqrMagnitude < 0.01f) return;
 
-        Quaternion targetRotation = Quaternion.LookRotation(
-            moveDirection,
-            Vector3.up
-        );
-
-        transform.rotation = Quaternion.Slerp(
-            transform.rotation,
-            targetRotation,
-            rotationSpeed * Time.fixedDeltaTime
-        );
+        Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime);
     }
 
     private void Jump()
@@ -250,9 +164,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
 
         if (groundSensor != null)
-        {
             groundSensor.ResetContacts();
-        }
     }
 
     // ─── Speed Effects ────────────────────────────────────────────────────────
@@ -266,11 +178,11 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private System.Collections.IEnumerator TimedSpeedRoutine(float multiplier, float duration)
     {
         timedSpeedMultiplier = multiplier;
+        timedEffectEndTime = Time.time + duration;
         yield return new WaitForSeconds(duration);
         timedSpeedMultiplier = 1f;
     }
 
-    // Called by zone-based traps — pass 1f on exit to restore
     public void SetZoneSpeedEffect(float multiplier)
     {
         zoneSpeedMultiplier = multiplier;
@@ -280,10 +192,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
 
     private void OnGUI()
     {
-        if (!showDebugInfo)
-        {
-            return;
-        }
+        if (!showDebugInfo) return;
 
         GUI.Label(new Rect(20, 20, 300, 25), "Speed: " + CurrentSpeed.ToString("F2"));
         GUI.Label(new Rect(20, 45, 300, 25), "Grounded: " + IsGrounded);

@@ -457,42 +457,30 @@ public class GameUIBootstrap : MonoBehaviour
 
     private string GetModifierLabel()
     {
-        if (player == null)
-        {
-            return "NO SIGNAL";
-        }
+        if (player == null) return "NO SIGNAL";
 
-        return player.ActiveModifier switch
-        {
-            PlayerRigidbodyMovement.SpeedModifierMode.Slowed => "SLOWED x" + player.ActiveSpeedMultiplier.ToString("0.0"),
-            PlayerRigidbodyMovement.SpeedModifierMode.Boosted => "BOOSTED x" + player.ActiveSpeedMultiplier.ToString("0.0"),
-            _ => "NORMAL x1.0"
-        };
+        float m = player.EffectiveSpeedMultiplier;
+        if (m > 1.05f) return "BOOSTED x" + m.ToString("0.0");
+        if (m < 0.95f) return "SLOWED x" + m.ToString("0.0");
+        return "NORMAL x1.0";
     }
 
     private string GetModifierTimerText()
     {
-        if (player == null || player.ActiveModifier == PlayerRigidbodyMovement.SpeedModifierMode.Normal)
-        {
-            return "--";
-        }
+        if (player == null) return "--";
 
-        return player.ModifierTimeRemaining.ToString("0.0") + "s";
+        float remaining = player.TimedSpeedRemaining;
+        return remaining > 0f ? remaining.ToString("0.0") + "s" : "--";
     }
 
     private Color GetModifierColor()
     {
-        if (player == null)
-        {
-            return MutedText;
-        }
+        if (player == null) return MutedText;
 
-        return player.ActiveModifier switch
-        {
-            PlayerRigidbodyMovement.SpeedModifierMode.Slowed => Amber,
-            PlayerRigidbodyMovement.SpeedModifierMode.Boosted => Cyan,
-            _ => SoftCyan
-        };
+        float m = player.EffectiveSpeedMultiplier;
+        if (m > 1.05f) return Cyan;
+        if (m < 0.95f) return Amber;
+        return SoftCyan;
     }
 
     private Color GetStateColor()
