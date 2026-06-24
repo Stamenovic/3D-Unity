@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class CameraOrbitTarget : MonoBehaviour
 {
@@ -16,6 +17,14 @@ public class CameraOrbitTarget : MonoBehaviour
 
     private float yaw;
     private float pitch;
+    private InputAction lookAction;
+
+    private void Awake()
+    {
+        var playerInput = FindFirstObjectByType<PlayerInput>();
+        if (playerInput != null)
+            lookAction = playerInput.actions["Look"];
+    }
 
     private void Start()
     {
@@ -32,15 +41,17 @@ public class CameraOrbitTarget : MonoBehaviour
         }
     }
 
+    // ─── Camera ───────────────────────────────────────────────────────────────
+
     private void LateUpdate()
     {
-        if (player == null)
-        {
+        if (player == null) return;
+
+        if (LevelManager.Instance != null && LevelManager.Instance.IsPaused)
             return;
-        }
 
         FollowPlayerPosition();
-        RotateWithMouse();
+        RotateWithLookInput();
     }
 
     private void FollowPlayerPosition()
@@ -48,13 +59,12 @@ public class CameraOrbitTarget : MonoBehaviour
         transform.position = player.position + targetOffset;
     }
 
-    private void RotateWithMouse()
+    private void RotateWithLookInput()
     {
-        float mouseX = Input.GetAxis("Mouse X");
-        float mouseY = Input.GetAxis("Mouse Y");
+        Vector2 lookInput = lookAction?.ReadValue<Vector2>() ?? Vector2.zero;
 
-        yaw += mouseX * mouseSensitivity;
-        pitch -= mouseY * mouseSensitivity;
+        yaw += lookInput.x * mouseSensitivity;
+        pitch -= lookInput.y * mouseSensitivity;
 
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 

@@ -1,7 +1,9 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(CapsuleCollider))]
+[RequireComponent(typeof(PlayerInput))]
 public class PlayerRigidbodyMovement : MonoBehaviour
 {
     [Header("Movement")]
@@ -17,10 +19,6 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private float jumpForce = 6f;
     [SerializeField] private GroundSensor groundSensor;
 
-    [Header("Input")]
-    [SerializeField] private KeyCode runKey = KeyCode.LeftShift;
-    [SerializeField] private KeyCode jumpKey = KeyCode.Space;
-
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
 
@@ -33,21 +31,56 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     public float CurrentSpeed { get; private set; }
     public bool IsGrounded => groundSensor != null && groundSensor.IsGrounded;
 
+    private PlayerInput playerInput;
+    private InputAction sprintAction;
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
         rb.freezeRotation = true;
 
         if (cameraTransform == null && Camera.main != null)
-        {
             cameraTransform = Camera.main.transform;
+
+        // Subscribe directly to the Sprint action
+        playerInput = GetComponent<PlayerInput>();
+        sprintAction = playerInput.actions["Sprint"];
+
+        sprintAction.started += _ => wantsToRun = true;
+        sprintAction.canceled += _ => wantsToRun = false;
+    }
+
+    private void OnDestroy()
+    {
+        // Always unsubscribe to avoid memory leaks
+        sprintAction.started -= _ => wantsToRun = true;
+        sprintAction.canceled -= _ => wantsToRun = false;
+    }
+
+    // ─── Input Callbacks (called by PlayerInput component) ───────────────────
+
+    // Receives Vector2 from the "Move" action (WASD / Left Stick)
+    private void OnMove(InputValue value)
+    {
+        moveInput = Vector2.ClampMagnitude(value.Get<Vector2>(), 1f);
+    }
+
+    // Receives float (1 = pressed, 0 = released) from the "Sprint" action
+    private void OnSprint(InputValue value)
+    {
+        wantsToRun = value.isPressed;
+    }
+
+    // Receives a button press from the "Jump" action (triggered only on press)
+    private void OnJump(InputValue value)
+    {
+        if (value.isPressed)
+        {
+            wantsToJump = true;
         }
     }
 
-    private void Update()
-    {
-        ReadInput();
-    }
+    // ─── Physics ──────────────────────────────────────────────────────────────
 
     private void FixedUpdate()
     {
@@ -59,22 +92,6 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         }
 
         wantsToJump = false;
-    }
-
-    private void ReadInput()
-    {
-        float horizontal = Input.GetAxisRaw("Horizontal");
-        float vertical = Input.GetAxisRaw("Vertical");
-
-        moveInput = new Vector2(horizontal, vertical);
-        moveInput = Vector2.ClampMagnitude(moveInput, 1f);
-
-        wantsToRun = Input.GetKey(runKey);
-
-        if (Input.GetKeyDown(jumpKey))
-        {
-            wantsToJump = true;
-        }
     }
 
     private void Move()
@@ -171,6 +188,8 @@ public class PlayerRigidbodyMovement : MonoBehaviour
             groundSensor.ResetContacts();
         }
     }
+
+    // ─── Debug ────────────────────────────────────────────────────────────────
 
     private void OnGUI()
     {
