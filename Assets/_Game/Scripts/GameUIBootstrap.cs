@@ -256,19 +256,19 @@ public class GameUIBootstrap : MonoBehaviour
 
     private void DrawGameplayStatusPanel()
     {
-        Rect panel = new Rect(10f, 10f, 252f, 104f);
+        Rect panel = new Rect(10f, 10f, 310f, 104f);
         DrawPanel(panel, PanelGlass, Cyan);
 
-        GUI.Label(new Rect(panel.x + 14f, panel.y + 9f, 224f, 18f), "MOVEMENT STATUS", CreateStyle(12, FontStyle.Bold, Cyan, TextAnchor.UpperLeft));
+        GUI.Label(new Rect(panel.x + 14f, panel.y + 9f, 282f, 18f), "MOVEMENT STATUS", CreateStyle(12, FontStyle.Bold, Cyan, TextAnchor.UpperLeft));
 
         string speed = player == null ? "--" : player.CurrentSpeed.ToString("0.00");
-        GUI.Label(new Rect(panel.x + 14f, panel.y + 28f, 224f, 30f), "SPD " + speed + " m/s", CreateStyle(23, FontStyle.Bold, Color.white, TextAnchor.UpperLeft));
+        GUI.Label(new Rect(panel.x + 14f, panel.y + 28f, 282f, 30f), "SPD " + speed + " m/s", CreateStyle(23, FontStyle.Bold, Color.white, TextAnchor.UpperLeft));
 
         Color modifierColor = GetModifierColor();
         DrawRect(new Rect(panel.x + 14f, panel.y + 66f, 6f, 19f), modifierColor);
-        GUI.Label(new Rect(panel.x + 28f, panel.y + 61f, 210f, 24f), "MOD: " + GetModifierLabel(), CreateStyle(15, FontStyle.Bold, Color.white, TextAnchor.UpperLeft));
+        GUI.Label(new Rect(panel.x + 28f, panel.y + 61f, 268f, 24f), "MOD: " + GetModifierLabel(), CreateStyle(15, FontStyle.Bold, Color.white, TextAnchor.UpperLeft));
 
-        GUI.Label(new Rect(panel.x + 14f, panel.y + 84f, 224f, 18f), "TIMER: " + GetModifierTimerText(), CreateStyle(12, FontStyle.Normal, MutedText, TextAnchor.UpperLeft));
+        GUI.Label(new Rect(panel.x + 14f, panel.y + 84f, 282f, 18f), "TIMER: " + GetModifierTimerText(), CreateStyle(12, FontStyle.Normal, MutedText, TextAnchor.UpperLeft));
     }
 
     private bool DrawHologramButton(Rect rect, string label)

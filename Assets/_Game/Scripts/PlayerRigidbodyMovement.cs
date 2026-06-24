@@ -19,12 +19,19 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private float jumpForce = 6f;
     [SerializeField] private GroundSensor groundSensor;
 
+    [Header("Movement Audio")]
+    [SerializeField] private float movementAudioVolume = 0.55f;
+    [SerializeField] private float movementAudioMinSpeed = 0.15f;
+
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo;
 
     private Rigidbody rb;
     private PlayerInput playerInput;
     private InputAction sprintAction;
+    private AudioSource movementAudioSource;
+    private AudioClip walkAudioClip;
+    private AudioClip runAudioClip;
 
     private Vector2 moveInput;
     private bool wantsToRun;
@@ -59,6 +66,8 @@ public class PlayerRigidbodyMovement : MonoBehaviour
             sprintAction.started += OnSprintStarted;
             sprintAction.canceled += OnSprintCanceled;
         }
+
+        CreateMovementAudio();
     }
 
     private void OnDestroy()
@@ -72,6 +81,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private void Update()
     {
         UpdateKeyboardFallbackInput();
+        UpdateMovementAudio();
     }
 
     private void OnSprintStarted(InputAction.CallbackContext context) => wantsToRun = true;
@@ -190,6 +200,51 @@ public class PlayerRigidbodyMovement : MonoBehaviour
 
         if (groundSensor != null)
             groundSensor.ResetContacts();
+    }
+
+    private void CreateMovementAudio()
+    {
+        walkAudioClip = Resources.Load<AudioClip>("Audio/FootstepsSoundEffect");
+        runAudioClip = Resources.Load<AudioClip>("Audio/RunningSoundEffect");
+
+        movementAudioSource = gameObject.AddComponent<AudioSource>();
+        movementAudioSource.loop = true;
+        movementAudioSource.playOnAwake = false;
+        movementAudioSource.spatialBlend = 0.35f;
+        movementAudioSource.volume = movementAudioVolume;
+    }
+
+    private void UpdateMovementAudio()
+    {
+        if (movementAudioSource == null)
+        {
+            return;
+        }
+
+        bool shouldPlay = Time.timeScale > 0f && IsGrounded && CurrentSpeed > movementAudioMinSpeed && HasMovementInput;
+        AudioClip targetClip = wantsToRun ? runAudioClip : walkAudioClip;
+
+        if (!shouldPlay || targetClip == null)
+        {
+            if (movementAudioSource.isPlaying)
+            {
+                movementAudioSource.Stop();
+            }
+
+            return;
+        }
+
+        if (movementAudioSource.clip != targetClip)
+        {
+            movementAudioSource.clip = targetClip;
+            movementAudioSource.Play();
+        }
+        else if (!movementAudioSource.isPlaying)
+        {
+            movementAudioSource.Play();
+        }
+
+        movementAudioSource.volume = movementAudioVolume;
     }
 
     // ─── Speed Effects ────────────────────────────────────────────────────────
