@@ -73,6 +73,8 @@ MonoBehaviour:
   visualRoot: {fileID: 39021793185856981}
   collectEffect: {fileID: 0}
   collectAudio: {fileID: 0}
+  collectClip: {fileID: 8300000, guid: 9b78c804d94446659a362b454633ab34, type: 3}
+  collectVolume: 0.85
   destroyOnCollect: 1
   respawnDelay: 0
 --- !u!114 &1000000000000000005

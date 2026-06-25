@@ -13,6 +13,8 @@ public class SpeedModifierPickup : MonoBehaviour
     [SerializeField] private GameObject visualRoot;
     [SerializeField] private ParticleSystem collectEffect;
     [SerializeField] private AudioSource collectAudio;
+    [SerializeField] private AudioClip collectClip;
+    [SerializeField] private float collectVolume = 0.85f;
     [SerializeField] private bool destroyOnCollect = true;
     [SerializeField] private float respawnDelay = 0f;
 
@@ -26,6 +28,9 @@ public class SpeedModifierPickup : MonoBehaviour
 
         if (visualRoot == null)
             visualRoot = gameObject;
+
+        if (collectClip == null)
+            collectClip = Resources.Load<AudioClip>("Audio/CollectItemSoundEffect");
     }
 
     private void OnTriggerEnter(Collider other)
@@ -44,8 +49,7 @@ public class SpeedModifierPickup : MonoBehaviour
 
     private IEnumerator CollectRoutine()
     {
-        if (collectAudio != null)
-            collectAudio.Play();
+        PlayCollectSound();
 
         if (collectEffect != null)
         {
@@ -60,7 +64,7 @@ public class SpeedModifierPickup : MonoBehaviour
 
         if (destroyOnCollect)
         {
-            float waitTime = collectAudio != null ? collectAudio.clip.length : 0f;
+            float waitTime = collectClip != null ? collectClip.length : 0f;
             if (collectEffect != null)
                 waitTime = Mathf.Max(waitTime, collectEffect.main.duration);
 
@@ -79,5 +83,23 @@ public class SpeedModifierPickup : MonoBehaviour
 
         triggerCollider.enabled = true;
         collected = false;
+    }
+
+    private void PlayCollectSound()
+    {
+        if (!GameUIBootstrap.EffectsEnabled)
+            return;
+
+        float volume = collectVolume * GameUIBootstrap.EffectsVolume;
+        if (collectAudio != null)
+        {
+            collectAudio.clip = collectAudio.clip != null ? collectAudio.clip : collectClip;
+            collectAudio.volume = volume;
+            collectAudio.Play();
+            return;
+        }
+
+        if (collectClip != null)
+            AudioSource.PlayClipAtPoint(collectClip, transform.position, volume);
     }
 }
