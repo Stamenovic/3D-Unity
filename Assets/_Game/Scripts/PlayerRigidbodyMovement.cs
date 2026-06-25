@@ -17,19 +17,25 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private Transform cameraTransform;
 
     [Header("Jump")]
-    [SerializeField] private float jumpForce = 6f;
+    [SerializeField] private float jumpForce = 8f;
     [SerializeField] private GroundSensor groundSensor;
     [SerializeField] private float fallbackGroundCheckRadius = 0.22f;
     [SerializeField] private float fallbackGroundCheckHeight = 0.18f;
-    [SerializeField] private float extraFallGravity = 28f;
+    [SerializeField] private float extraFallGravity = 18f;
     [SerializeField] private float maxUpwardVelocity = 6f;
 
     [Header("Animation")]
     [SerializeField] private Animator animator;
+    [SerializeField] private float jumpUpAnimationTime = 0.35f;
 
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
     private static readonly int SpeedMultiplierHash = Animator.StringToHash("SpeedMultiplier");
     private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
+    private static readonly int IdleStateHash = Animator.StringToHash("Idle");
+    private static readonly int WalkStateHash = Animator.StringToHash("Walk");
+    private static readonly int RunStateHash = Animator.StringToHash("Run");
+    private static readonly int JumpUpStateHash = Animator.StringToHash("JumpUp");
+    private static readonly int JumpDownStateHash = Animator.StringToHash("JumpDown");
 
     [Header("Movement Audio")]
     [SerializeField] private float movementAudioVolume = 0.55f;
@@ -67,6 +73,11 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private float timedEffectEndTime;
     private bool recoveringFromImpact;
     private float lastImpactTime;
+    private bool wasGroundedLastFrame = true;
+    private bool playingJumpUp;
+    private bool playingJumpDown;
+    private float ignoreGroundForJumpAnimationUntil;
+    private float jumpUpAnimationUntil;
 
     public float CurrentSpeed { get; private set; }
     public bool IsGrounded => (groundSensor != null && groundSensor.IsGrounded) || IsGroundBelow();
@@ -119,6 +130,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         animator.SetFloat(SpeedHash, CurrentSpeed);
         animator.SetFloat(SpeedMultiplierHash, EffectiveSpeedMultiplier);
         animator.SetBool(IsRunningHash, IsRunning);
+        UpdateJumpAnimation();
     }
 
     private void OnSprintStarted(InputAction.CallbackContext context)
@@ -293,9 +305,61 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         rb.linearVelocity = velocity;
 
         rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+        ignoreGroundForJumpAnimationUntil = Time.time + 0.12f;
+        jumpUpAnimationUntil = Time.time + jumpUpAnimationTime;
+        PlayAnimatorState(JumpUpStateHash, 0.08f);
+        playingJumpUp = true;
+        playingJumpDown = false;
 
         if (groundSensor != null)
             groundSensor.ResetContacts();
+    }
+
+    private void UpdateJumpAnimation()
+    {
+        bool grounded = IsGrounded && Time.time >= ignoreGroundForJumpAnimationUntil;
+        float verticalSpeed = rb != null ? rb.linearVelocity.y : 0f;
+
+        if (!grounded)
+        {
+            if (verticalSpeed <= 0.05f && !playingJumpDown)
+            {
+                PlayAnimatorState(JumpDownStateHash, 0.08f);
+                playingJumpDown = true;
+                playingJumpUp = false;
+            }
+            else if (playingJumpUp && Time.time >= jumpUpAnimationUntil)
+            {
+                playingJumpUp = false;
+                PlayAnimatorState(GetLocomotionStateHash(), 0.12f);
+            }
+        }
+        else if (!wasGroundedLastFrame || playingJumpUp || playingJumpDown)
+        {
+            playingJumpUp = false;
+            playingJumpDown = false;
+            PlayAnimatorState(GetLocomotionStateHash(), 0.12f);
+        }
+
+        wasGroundedLastFrame = grounded;
+    }
+
+    private int GetLocomotionStateHash()
+    {
+        if (!HasMovementInput)
+        {
+            return IdleStateHash;
+        }
+
+        return IsRunning ? RunStateHash : WalkStateHash;
+    }
+
+    private void PlayAnimatorState(int stateHash, float transitionDuration)
+    {
+        if (animator != null && animator.HasState(0, stateHash))
+        {
+            animator.CrossFadeInFixedTime(stateHash, transitionDuration);
+        }
     }
 
     private void OnCollisionEnter(Collision collision)

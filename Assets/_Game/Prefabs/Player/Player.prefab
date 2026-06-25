@@ -155,9 +155,10 @@ MonoBehaviour:
   acceleration: 15
   rotationSpeed: 12
   cameraTransform: {fileID: 0}
-  jumpForce: 6
+  jumpForce: 8
   groundSensor: {fileID: 5454405191391891016}
   animator: {fileID: 9107185039927942839}
+  jumpUpAnimationTime: 0.35
 --- !u!114 &3759974164586923597
 MonoBehaviour:
   m_ObjectHideFlags: 0
