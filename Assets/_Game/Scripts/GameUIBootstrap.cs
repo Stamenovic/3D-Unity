@@ -13,6 +13,8 @@ public class GameUIBootstrap : MonoBehaviour
 
     public static bool BlocksPauseToggle => Instance != null && Instance.settingsOpen;
     public static bool AllowsGameplayPause => Instance == null || Instance.missionStarted;
+    public static bool EffectsEnabled => Instance == null || Instance.specialEffectsEnabled;
+    public static float EffectsVolume => Instance == null ? 1f : Instance.effectsIntensity;
 
     private static readonly Color DeepSpace = new Color(0.01f, 0.015f, 0.025f, 0.84f);
     private static readonly Color PanelGlass = new Color(0.035f, 0.055f, 0.075f, 0.78f);
@@ -256,19 +258,21 @@ public class GameUIBootstrap : MonoBehaviour
 
     private void DrawGameplayStatusPanel()
     {
-        Rect panel = new Rect(10f, 10f, 310f, 104f);
-        DrawPanel(panel, PanelGlass, Cyan);
+        Rect panel = new Rect(14f, 14f, 380f, 126f);
+        DrawRect(panel, PanelGlass);
+        DrawBorder(panel, new Color(Cyan.r, Cyan.g, Cyan.b, 0.45f), 1f);
+        DrawCornerBrackets(panel, Cyan, 26f);
 
-        GUI.Label(new Rect(panel.x + 14f, panel.y + 9f, 282f, 18f), "MOVEMENT STATUS", CreateStyle(12, FontStyle.Bold, Cyan, TextAnchor.UpperLeft));
+        GUI.Label(new Rect(panel.x + 34f, panel.y + 18f, 316f, 20f), "MOVEMENT STATUS", CreateStyle(13, FontStyle.Bold, Cyan, TextAnchor.UpperLeft));
 
         string speed = player == null ? "--" : player.CurrentSpeed.ToString("0.00");
-        GUI.Label(new Rect(panel.x + 14f, panel.y + 28f, 282f, 30f), "SPD " + speed + " m/s", CreateStyle(23, FontStyle.Bold, Color.white, TextAnchor.UpperLeft));
+        GUI.Label(new Rect(panel.x + 34f, panel.y + 43f, 316f, 30f), "SPD " + speed + " m/s", CreateStyle(23, FontStyle.Bold, Color.white, TextAnchor.UpperLeft));
 
         Color modifierColor = GetModifierColor();
-        DrawRect(new Rect(panel.x + 14f, panel.y + 66f, 6f, 19f), modifierColor);
-        GUI.Label(new Rect(panel.x + 28f, panel.y + 61f, 268f, 24f), "MOD: " + GetModifierLabel(), CreateStyle(15, FontStyle.Bold, Color.white, TextAnchor.UpperLeft));
+        DrawRect(new Rect(panel.x + 34f, panel.y + 84f, 6f, 20f), modifierColor);
+        GUI.Label(new Rect(panel.x + 50f, panel.y + 78f, 300f, 24f), "MOD: " + GetModifierLabel(), CreateStyle(15, FontStyle.Bold, Color.white, TextAnchor.UpperLeft));
 
-        GUI.Label(new Rect(panel.x + 14f, panel.y + 84f, 282f, 18f), "TIMER: " + GetModifierTimerText(), CreateStyle(12, FontStyle.Normal, MutedText, TextAnchor.UpperLeft));
+        GUI.Label(new Rect(panel.x + 34f, panel.y + 104f, 316f, 18f), "TIMER: " + GetModifierTimerText(), CreateStyle(12, FontStyle.Normal, MutedText, TextAnchor.UpperLeft));
     }
 
     private bool DrawHologramButton(Rect rect, string label)
@@ -515,7 +519,11 @@ public class GameUIBootstrap : MonoBehaviour
 
     private void DrawCornerBrackets(Rect rect, Color color)
     {
-        float length = 42f;
+        DrawCornerBrackets(rect, color, 42f);
+    }
+
+    private void DrawCornerBrackets(Rect rect, Color color, float length)
+    {
         float inset = 10f;
         float thickness = 3f;
         Color bracket = new Color(color.r, color.g, color.b, 0.9f);
