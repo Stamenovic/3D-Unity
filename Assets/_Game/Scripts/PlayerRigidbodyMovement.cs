@@ -19,6 +19,13 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private float jumpForce = 6f;
     [SerializeField] private GroundSensor groundSensor;
 
+    [Header("Animation")]
+    [SerializeField] private Animator animator;
+
+    private static readonly int SpeedHash = Animator.StringToHash("Speed");
+    private static readonly int SpeedMultiplierHash = Animator.StringToHash("SpeedMultiplier");
+    private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
+
     [Header("Movement Audio")]
     [SerializeField] private float movementAudioVolume = 0.55f;
     [SerializeField] private float movementAudioMinSpeed = 0.15f;
@@ -81,7 +88,16 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private void Update()
     {
         UpdateKeyboardFallbackInput();
+        UpdateAnimator();
         UpdateMovementAudio();
+    }
+
+    private void UpdateAnimator()
+    {
+        if (animator == null) return;
+        animator.SetFloat(SpeedHash, CurrentSpeed);
+        animator.SetFloat(SpeedMultiplierHash, EffectiveSpeedMultiplier);
+        animator.SetBool(IsRunningHash, IsRunning);
     }
 
     private void OnSprintStarted(InputAction.CallbackContext context) => wantsToRun = true;
@@ -266,16 +282,5 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     public void SetZoneSpeedEffect(float multiplier)
     {
         zoneSpeedMultiplier = multiplier;
-    }
-
-    // ─── Debug ────────────────────────────────────────────────────────────────
-
-    private void OnGUI()
-    {
-        if (!showDebugInfo) return;
-
-        GUI.Label(new Rect(20, 20, 300, 25), "Speed: " + CurrentSpeed.ToString("F2"));
-        GUI.Label(new Rect(20, 45, 300, 25), "Grounded: " + IsGrounded);
-        GUI.Label(new Rect(20, 70, 300, 25), "Running: " + wantsToRun);
     }
 }
