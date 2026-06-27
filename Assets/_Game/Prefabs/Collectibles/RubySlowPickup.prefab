@@ -68,10 +68,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9f20e19cc5dc4fc4bb9cde19908c8c52, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SpeedModifierPickup
-  speedMultiplier: 0.55
-  duration: 6
+  modifierTarget: 2
+  speedMultiplier: 1.5
+  duration: 5
   visualRoot: {fileID: 1633533197553466837}
   collectEffect: {fileID: 0}
+  collectEffectColor: {r: 1, g: 0.12, b: 0.28, a: 1}
   collectAudio: {fileID: 0}
   collectClip: {fileID: 8300000, guid: 9b78c804d94446659a362b454633ab34, type: 3}
   collectVolume: 0.85

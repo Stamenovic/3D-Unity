@@ -69,6 +69,8 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private bool wantsToJump;
 
     private float timedSpeedMultiplier = 1f;
+    private float timedJumpMultiplier = 1f;
+    private float timedSprintSpeedMultiplier = 1f;
     private float zoneSpeedMultiplier = 1f;
     private float timedEffectEndTime;
     private bool recoveringFromImpact;
@@ -84,6 +86,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     public bool IsRunning => wantsToRun && CurrentSpeed > 0.1f;
     public bool HasMovementInput => moveInput.sqrMagnitude > 0.01f;
     public float EffectiveSpeedMultiplier => timedSpeedMultiplier * zoneSpeedMultiplier;
+    private float EffectiveAnimationSpeedMultiplier => EffectiveSpeedMultiplier * (wantsToRun ? timedSprintSpeedMultiplier : 1f);
     public float TimedSpeedRemaining => timedSpeedMultiplier != 1f ? Mathf.Max(0f, timedEffectEndTime - Time.time) : 0f;
     public bool IsRecoveringFromImpact => recoveringFromImpact;
 
@@ -128,7 +131,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     {
         if (animator == null) return;
         animator.SetFloat(SpeedHash, CurrentSpeed);
-        animator.SetFloat(SpeedMultiplierHash, EffectiveSpeedMultiplier);
+        animator.SetFloat(SpeedMultiplierHash, EffectiveAnimationSpeedMultiplier);
         animator.SetBool(IsRunningHash, IsRunning);
         UpdateJumpAnimation();
     }
@@ -225,7 +228,8 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private void Move()
     {
         float effectiveMultiplier = timedSpeedMultiplier * zoneSpeedMultiplier;
-        float targetSpeed = (wantsToRun ? runSpeed : walkSpeed) * effectiveMultiplier;
+        float baseSpeed = wantsToRun ? runSpeed * timedSprintSpeedMultiplier : walkSpeed;
+        float targetSpeed = baseSpeed * effectiveMultiplier;
 
         Vector3 moveDirection = GetCameraRelativeMoveDirection();
 
@@ -255,9 +259,10 @@ public class PlayerRigidbodyMovement : MonoBehaviour
             rb.AddForce(Vector3.down * extraFallGravity, ForceMode.Acceleration);
         }
 
-        if (velocity.y > maxUpwardVelocity)
+        float currentMaxUpwardVelocity = maxUpwardVelocity * timedJumpMultiplier;
+        if (velocity.y > currentMaxUpwardVelocity)
         {
-            rb.linearVelocity = new Vector3(velocity.x, maxUpwardVelocity, velocity.z);
+            rb.linearVelocity = new Vector3(velocity.x, currentMaxUpwardVelocity, velocity.z);
         }
     }
 
@@ -304,7 +309,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         velocity.y = 0f;
         rb.linearVelocity = velocity;
 
-        rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+        rb.AddForce(Vector3.up * jumpForce * timedJumpMultiplier, ForceMode.Impulse);
         ignoreGroundForJumpAnimationUntil = Time.time + 0.12f;
         jumpUpAnimationUntil = Time.time + jumpUpAnimationTime;
         PlayAnimatorState(JumpUpStateHash, 0.08f);
@@ -513,12 +518,38 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         StartCoroutine(TimedSpeedRoutine(multiplier, duration));
     }
 
+    public void ApplyTimedJumpEffect(float multiplier, float duration)
+    {
+        StopCoroutine(nameof(TimedJumpRoutine));
+        StartCoroutine(TimedJumpRoutine(multiplier, duration));
+    }
+
+    public void ApplyTimedSprintSpeedEffect(float multiplier, float duration)
+    {
+        StopCoroutine(nameof(TimedSprintSpeedRoutine));
+        StartCoroutine(TimedSprintSpeedRoutine(multiplier, duration));
+    }
+
     private System.Collections.IEnumerator TimedSpeedRoutine(float multiplier, float duration)
     {
         timedSpeedMultiplier = multiplier;
         timedEffectEndTime = Time.time + duration;
         yield return new WaitForSeconds(duration);
         timedSpeedMultiplier = 1f;
+    }
+
+    private System.Collections.IEnumerator TimedJumpRoutine(float multiplier, float duration)
+    {
+        timedJumpMultiplier = multiplier;
+        yield return new WaitForSeconds(duration);
+        timedJumpMultiplier = 1f;
+    }
+
+    private System.Collections.IEnumerator TimedSprintSpeedRoutine(float multiplier, float duration)
+    {
+        timedSprintSpeedMultiplier = multiplier;
+        yield return new WaitForSeconds(duration);
+        timedSprintSpeedMultiplier = 1f;
     }
 
     public void SetZoneSpeedEffect(float multiplier)
