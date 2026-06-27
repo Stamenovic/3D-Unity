@@ -12,17 +12,19 @@ public class PhysicsObstaclePiece : MonoBehaviour
     [SerializeField] private bool lockUntilPlayerImpact = false;
     [SerializeField] private float linkedActivationRadius = 2.5f;
     [SerializeField] private float extraGravity = 8f;
-    [SerializeField] private float maxHorizontalSpeed = 2.5f;
+    [SerializeField] private float maxHorizontalSpeed = 3f;
     [SerializeField] private float maxUpwardSpeed = 0.35f;
     [SerializeField] private float colliderFriction = 0.18f;
+    [SerializeField] private bool preferMeshCollider = true;
 
     [Header("Impact")]
-    [SerializeField] private float extraPushForce = 0.15f;
-    [SerializeField] private float sustainedPushForce = 8f;
-    [SerializeField] private float pushAssistSpeed = 1.25f;
+    [SerializeField] private float extraPushForce = 0.18f;
+    [SerializeField] private float sustainedPushForce = 9.6f;
+    [SerializeField] private float pushAssistSpeed = 1.5f;
+    [SerializeField] private float speedToPushMultiplier = 0.55f;
     [SerializeField] private float upwardScatterForce = 0f;
     [SerializeField] private float torqueForce = 0.75f;
-    [SerializeField] private float maxAppliedImpactSpeed = 2.4f;
+    [SerializeField] private float maxAppliedImpactSpeed = 4f;
 
     private Rigidbody rb;
     private PhysicsMaterial lowFrictionMaterial;
@@ -52,6 +54,11 @@ public class PhysicsObstaclePiece : MonoBehaviour
 
     private void EnsureCollider()
     {
+        if (preferMeshCollider && TryConfigureMeshCollider())
+        {
+            return;
+        }
+
         if (GetComponentInChildren<Collider>() != null)
         {
             return;
@@ -65,6 +72,53 @@ public class PhysicsObstaclePiece : MonoBehaviour
             Mathf.Max(0.25f, bounds.size.y / Mathf.Max(0.001f, transform.lossyScale.y)),
             Mathf.Max(0.25f, bounds.size.z / Mathf.Max(0.001f, transform.lossyScale.z))
         );
+    }
+
+    private bool TryConfigureMeshCollider()
+    {
+        MeshFilter meshFilter = GetComponentInChildren<MeshFilter>();
+        if (meshFilter == null || meshFilter.sharedMesh == null)
+        {
+            return false;
+        }
+
+        MeshCollider meshCollider = meshFilter.GetComponent<MeshCollider>();
+        if (meshCollider == null)
+        {
+            meshCollider = meshFilter.gameObject.AddComponent<MeshCollider>();
+        }
+
+        meshCollider.sharedMesh = meshFilter.sharedMesh;
+        meshCollider.convex = true;
+        meshCollider.isTrigger = false;
+
+        BoxCollider boxCollider = GetComponent<BoxCollider>();
+        if (boxCollider != null)
+        {
+            if (Application.isPlaying)
+            {
+                Destroy(boxCollider);
+            }
+            else
+            {
+                DestroyImmediate(boxCollider);
+            }
+        }
+
+        MeshCollider rootMeshCollider = GetComponent<MeshCollider>();
+        if (rootMeshCollider != null && rootMeshCollider != meshCollider)
+        {
+            if (Application.isPlaying)
+            {
+                Destroy(rootMeshCollider);
+            }
+            else
+            {
+                DestroyImmediate(rootMeshCollider);
+            }
+        }
+
+        return true;
     }
 
     private Bounds CalculateRenderBounds()
@@ -146,7 +200,7 @@ public class PhysicsObstaclePiece : MonoBehaviour
     {
         Vector3 velocity = rb.linearVelocity;
         Vector3 horizontalVelocity = new Vector3(velocity.x, 0f, velocity.z);
-        float targetSpeed = Mathf.Min(maxHorizontalSpeed, Mathf.Max(pushAssistSpeed, playerSpeed * 0.35f));
+        float targetSpeed = Mathf.Min(maxHorizontalSpeed, Mathf.Max(pushAssistSpeed, playerSpeed * speedToPushMultiplier));
         Vector3 assistedVelocity = pushDirection * targetSpeed;
 
         if (Vector3.Dot(horizontalVelocity, pushDirection) < targetSpeed)

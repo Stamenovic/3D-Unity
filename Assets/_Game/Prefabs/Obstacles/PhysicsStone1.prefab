@@ -102,15 +102,17 @@ MonoBehaviour:
   lockUntilPlayerImpact: 0
   linkedActivationRadius: 2.5
   extraGravity: 8
-  maxHorizontalSpeed: 2.5
+  maxHorizontalSpeed: 3
   maxUpwardSpeed: 0.35
   colliderFriction: 0.18
-  extraPushForce: 0.15
-  sustainedPushForce: 8
-  pushAssistSpeed: 1.25
+  preferMeshCollider: 1
+  extraPushForce: 0.18
+  sustainedPushForce: 9.6
+  pushAssistSpeed: 1.5
+  speedToPushMultiplier: 0.55
   upwardScatterForce: 0.1
   torqueForce: 0.75
-  maxAppliedImpactSpeed: 2.4
+  maxAppliedImpactSpeed: 4
 --- !u!1001 &310000000000000006
 PrefabInstance:
   m_ObjectHideFlags: 0
