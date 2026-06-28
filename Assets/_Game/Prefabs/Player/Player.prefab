@@ -159,6 +159,25 @@ MonoBehaviour:
   groundSensor: {fileID: 5454405191391891016}
   animator: {fileID: 9107185039927942839}
   jumpUpAnimationTime: 0.35
+  movementAudioVolume: 0.55
+  movementAudioMinSpeed: 0.15
+  enableObstacleImpactRecovery: 1
+  stumbleImpactSpeed: 2.4
+  fallImpactSpeed: 2.8
+  stumbleRecoveryTime: 0.22
+  fallDownAnimationTime: 0.85
+  fallDownAnimatorSpeed: 1.25
+  getUpAnimationTime: 1.45
+  fallDownBlendTime: 0.08
+  getUpBlendTime: 0.28
+  impactExitBlendTime: 0.22
+  impactRootMotionScale: 0.2
+  impactRecoveryCooldown: 0.9
+  knockbackForce: 0
+  heavyObjectMass: 5
+  stumbleTrigger: Stumble
+  fallTrigger: Fall
+  showDebugInfo: 0
 --- !u!114 &3759974164586923597
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -36,19 +36,28 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private static readonly int RunStateHash = Animator.StringToHash("Run");
     private static readonly int JumpUpStateHash = Animator.StringToHash("JumpUp");
     private static readonly int JumpDownStateHash = Animator.StringToHash("JumpDown");
+    private static readonly int FallDownStateHash = Animator.StringToHash("FallDown");
+    private static readonly int GetUpStateHash = Animator.StringToHash("GetUp");
 
     [Header("Movement Audio")]
     [SerializeField] private float movementAudioVolume = 0.55f;
     [SerializeField] private float movementAudioMinSpeed = 0.15f;
 
     [Header("Obstacle Impact")]
-    [SerializeField] private bool enableObstacleImpactRecovery = false;
+    [SerializeField] private bool enableObstacleImpactRecovery = true;
     [SerializeField] private float stumbleImpactSpeed = 2.4f;
-    [SerializeField] private float fallImpactSpeed = 5.2f;
+    [SerializeField] private float fallImpactSpeed = 2.8f;
     [SerializeField] private float stumbleRecoveryTime = 0.22f;
-    [SerializeField] private float fallRecoveryTime = 0.75f;
+    [SerializeField] private float fallDownAnimationTime = 0.85f;
+    [SerializeField] private float fallDownAnimatorSpeed = 1.25f;
+    [SerializeField] private float getUpAnimationTime = 1.45f;
+    [SerializeField] private float fallDownBlendTime = 0.08f;
+    [SerializeField] private float getUpBlendTime = 0.28f;
+    [SerializeField] private float impactExitBlendTime = 0.22f;
+    [SerializeField] private float impactRootMotionScale = 0.2f;
     [SerializeField] private float impactRecoveryCooldown = 0.9f;
     [SerializeField] private float knockbackForce = 0f;
+    [SerializeField] private float heavyObjectMass = 5f;
     [SerializeField] private string stumbleTrigger = "Stumble";
     [SerializeField] private string fallTrigger = "Fall";
 
@@ -74,6 +83,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private float zoneSpeedMultiplier = 1f;
     private float timedEffectEndTime;
     private bool recoveringFromImpact;
+    private bool applyingImpactRootMotion;
     private float lastImpactTime;
     private bool wasGroundedLastFrame = true;
     private bool playingJumpUp;
@@ -94,6 +104,9 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         rb.freezeRotation = true;
+
+        if (animator != null)
+            animator.applyRootMotion = false;
 
         if (cameraTransform == null && Camera.main != null)
             cameraTransform = Camera.main.transform;
@@ -211,7 +224,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     {
         if (recoveringFromImpact)
         {
-            DampMovementDuringRecovery();
+            StopHorizontalRecoveryVelocity();
             wantsToJump = false;
             return;
         }
@@ -273,6 +286,13 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         horizontal = Vector3.MoveTowards(horizontal, Vector3.zero, acceleration * 0.5f * Time.fixedDeltaTime);
         rb.linearVelocity = new Vector3(horizontal.x, velocity.y, horizontal.z);
         CurrentSpeed = horizontal.magnitude;
+    }
+
+    private void StopHorizontalRecoveryVelocity()
+    {
+        Vector3 velocity = rb.linearVelocity;
+        rb.linearVelocity = new Vector3(0f, velocity.y, 0f);
+        CurrentSpeed = 0f;
     }
 
     private Vector3 GetCameraRelativeMoveDirection()
@@ -379,14 +399,13 @@ public class PlayerRigidbodyMovement : MonoBehaviour
             return;
         }
 
-        PhysicsObstaclePiece obstacle = collision.collider.GetComponentInParent<PhysicsObstaclePiece>();
-        if (obstacle == null || collision.contactCount == 0)
+        if (collision.contactCount == 0 || !IsHardImpactCollider(collision.collider))
         {
             return;
         }
 
-        float impactSpeed = CurrentSpeed;
-        if (impactSpeed < stumbleImpactSpeed)
+        float impactSpeed = Mathf.Max(CurrentSpeed, collision.relativeVelocity.magnitude);
+        if (!IsHighSpeedFallImpact(impactSpeed))
         {
             return;
         }
@@ -405,16 +424,40 @@ public class PlayerRigidbodyMovement : MonoBehaviour
             hitDirection = -transform.forward;
         }
 
-        bool shouldFall = impactSpeed >= fallImpactSpeed;
-        StartCoroutine(RecoverFromObstacleImpact(shouldFall, hitDirection, impactSpeed));
+        StartCoroutine(RecoverFromObstacleImpact(hitDirection, impactSpeed));
     }
 
-    private IEnumerator RecoverFromObstacleImpact(bool fall, Vector3 hitDirection, float impactSpeed)
+    private bool IsHardImpactCollider(Collider hitCollider)
+    {
+        if (hitCollider.GetComponentInParent<PhysicsObstaclePiece>() != null)
+        {
+            return true;
+        }
+
+        Rigidbody hitBody = hitCollider.attachedRigidbody;
+        if (hitBody == null)
+        {
+            return !hitCollider.isTrigger && !hitCollider.CompareTag("Player");
+        }
+
+        return hitBody.mass >= heavyObjectMass || hitBody.isKinematic;
+    }
+
+    private bool IsHighSpeedFallImpact(float impactSpeed)
+    {
+        if (impactSpeed < fallImpactSpeed)
+        {
+            return false;
+        }
+
+        return wantsToRun || timedSpeedMultiplier > 1.01f || timedSprintSpeedMultiplier > 1.01f;
+    }
+
+    private IEnumerator RecoverFromObstacleImpact(Vector3 hitDirection, float impactSpeed)
     {
         recoveringFromImpact = true;
         lastImpactTime = Time.time;
         wantsToJump = false;
-        TriggerImpactAnimation(fall);
 
         Vector3 velocity = rb.linearVelocity;
         velocity.x = 0f;
@@ -427,9 +470,63 @@ public class PlayerRigidbodyMovement : MonoBehaviour
             rb.AddForce(knockback * knockbackForce * Mathf.Clamp(impactSpeed, 1f, 3f), ForceMode.Impulse);
         }
 
-        yield return new WaitForSeconds(fall ? fallRecoveryTime : stumbleRecoveryTime);
+        applyingImpactRootMotion = true;
+        if (animator != null)
+            animator.applyRootMotion = true;
+
+        PlayFallAnimation();
+        yield return WaitForImpactAnimation(fallDownAnimationTime);
+
+        if (animator != null)
+            animator.speed = 1f;
+
+        PlayAnimatorState(GetUpStateHash, getUpBlendTime);
+        yield return WaitForImpactAnimation(getUpAnimationTime);
+
+        applyingImpactRootMotion = false;
+        if (animator != null)
+            animator.applyRootMotion = false;
 
         recoveringFromImpact = false;
+        PlayAnimatorState(GetLocomotionStateHash(), impactExitBlendTime);
+    }
+
+    private IEnumerator WaitForImpactAnimation(float duration)
+    {
+        float timer = 0f;
+        while (timer < duration)
+        {
+            rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+            timer += Time.deltaTime;
+            yield return null;
+        }
+    }
+
+    private void OnAnimatorMove()
+    {
+        if (animator == null || rb == null || !applyingImpactRootMotion)
+        {
+            return;
+        }
+
+        Vector3 rootDelta = animator.deltaPosition * impactRootMotionScale;
+        Vector3 horizontalDelta = new Vector3(rootDelta.x, 0f, rootDelta.z);
+        rb.MovePosition(rb.position + horizontalDelta);
+    }
+
+    private void PlayFallAnimation()
+    {
+        if (animator != null && animator.HasState(0, FallDownStateHash))
+        {
+            animator.speed = fallDownAnimatorSpeed;
+            PlayAnimatorState(FallDownStateHash, fallDownBlendTime);
+            return;
+        }
+
+        if (animator != null)
+            animator.speed = 1f;
+
+        TriggerImpactAnimation(true);
     }
 
     private void TriggerImpactAnimation(bool fall)
