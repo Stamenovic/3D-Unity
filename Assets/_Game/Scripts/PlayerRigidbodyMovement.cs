@@ -52,9 +52,10 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private float fallDownAnimatorSpeed = 1.25f;
     [SerializeField] private float getUpAnimationTime = 1.45f;
     [SerializeField] private float fallDownBlendTime = 0.08f;
-    [SerializeField] private float getUpBlendTime = 0.28f;
+    [SerializeField] private float getUpBlendTime = 0.3f;
     [SerializeField] private float impactExitBlendTime = 0.22f;
-    [SerializeField] private float impactRootMotionScale = 0.2f;
+    [SerializeField] private float impactRootMotionScale = 0.0f;
+    [SerializeField] private float impactVisualHipsCompensation = 1f;
     [SerializeField] private float impactRecoveryCooldown = 0.9f;
     [SerializeField] private float knockbackForce = 0f;
     [SerializeField] private float heavyObjectMass = 5f;
@@ -84,6 +85,11 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private float timedEffectEndTime;
     private bool recoveringFromImpact;
     private bool applyingImpactRootMotion;
+    private bool compensatingImpactVisualOffset;
+    private Transform impactVisualRoot;
+    private Transform impactHips;
+    private Vector3 impactVisualRootBaseLocalPosition;
+    private Vector3 impactHipsAnchorPosition;
     private float lastImpactTime;
     private bool wasGroundedLastFrame = true;
     private bool playingJumpUp;
@@ -140,6 +146,11 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         UpdateMovementAudio();
     }
 
+    private void LateUpdate()
+    {
+        CompensateImpactVisualOffset();
+    }
+
     private void UpdateAnimator()
     {
         if (animator == null) return;
@@ -161,7 +172,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         UpdateRunIntent();
     }
 
-    // ─── Input Callbacks (called by PlayerInput component) ───────────────────
+    // ─── Input Callbacks ───────────────────
 
     private void OnMove(InputValue value)
     {
@@ -474,6 +485,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         if (animator != null)
             animator.applyRootMotion = true;
 
+        BeginImpactVisualCompensation();
         PlayFallAnimation();
         yield return WaitForImpactAnimation(fallDownAnimationTime);
 
@@ -487,6 +499,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         if (animator != null)
             animator.applyRootMotion = false;
 
+        EndImpactVisualCompensation();
         recoveringFromImpact = false;
         PlayAnimatorState(GetLocomotionStateHash(), impactExitBlendTime);
     }
@@ -512,6 +525,53 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         Vector3 rootDelta = animator.deltaPosition * impactRootMotionScale;
         Vector3 horizontalDelta = new Vector3(rootDelta.x, 0f, rootDelta.z);
         rb.MovePosition(rb.position + horizontalDelta);
+    }
+
+    private void BeginImpactVisualCompensation()
+    {
+        if (animator == null || impactVisualHipsCompensation <= 0f)
+        {
+            compensatingImpactVisualOffset = false;
+            return;
+        }
+
+        impactVisualRoot = animator.transform;
+        impactHips = animator.GetBoneTransform(HumanBodyBones.Hips);
+        if (impactVisualRoot == null || impactHips == null)
+        {
+            compensatingImpactVisualOffset = false;
+            return;
+        }
+
+        impactVisualRootBaseLocalPosition = impactVisualRoot.localPosition;
+        impactHipsAnchorPosition = impactHips.position;
+        compensatingImpactVisualOffset = true;
+    }
+
+    private void CompensateImpactVisualOffset()
+    {
+        if (!compensatingImpactVisualOffset || impactVisualRoot == null || impactHips == null)
+        {
+            return;
+        }
+
+        impactVisualRoot.localPosition = impactVisualRootBaseLocalPosition;
+
+        Vector3 correction = impactHipsAnchorPosition - impactHips.position;
+        correction.y = 0f;
+        impactVisualRoot.position += correction * impactVisualHipsCompensation;
+    }
+
+    private void EndImpactVisualCompensation()
+    {
+        if (impactVisualRoot != null)
+        {
+            impactVisualRoot.localPosition = impactVisualRootBaseLocalPosition;
+        }
+
+        compensatingImpactVisualOffset = false;
+        impactVisualRoot = null;
+        impactHips = null;
     }
 
     private void PlayFallAnimation()

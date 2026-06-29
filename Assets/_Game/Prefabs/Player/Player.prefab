@@ -171,7 +171,8 @@ MonoBehaviour:
   fallDownBlendTime: 0.08
   getUpBlendTime: 0.28
   impactExitBlendTime: 0.22
-  impactRootMotionScale: 0.2
+  impactRootMotionScale: 0
+  impactVisualHipsCompensation: 1
   impactRecoveryCooldown: 0.9
   knockbackForce: 0
   heavyObjectMass: 5
