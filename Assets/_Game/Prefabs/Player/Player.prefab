@@ -161,6 +161,8 @@ MonoBehaviour:
   jumpUpAnimationTime: 0.35
   movementAudioVolume: 0.55
   movementAudioMinSpeed: 0.15
+  movementAudioMinPitch: 0.55
+  movementAudioMaxPitch: 1.35
   enableObstacleImpactRecovery: 1
   stumbleImpactSpeed: 2.4
   fallImpactSpeed: 2.8

@@ -270,7 +270,7 @@ public class GameUIBootstrap : MonoBehaviour
 
         Color modifierColor = GetModifierColor();
         DrawRect(new Rect(panel.x + 34f, panel.y + 84f, 6f, 20f), modifierColor);
-        GUI.Label(new Rect(panel.x + 50f, panel.y + 78f, 300f, 24f), "MOD: " + GetModifierLabel(), CreateStyle(15, FontStyle.Bold, Color.white, TextAnchor.UpperLeft));
+        GUI.Label(new Rect(panel.x + 50f, panel.y + 78f, 300f, 24f), "MODE: " + GetModifierLabel(), CreateStyle(15, FontStyle.Bold, Color.white, TextAnchor.UpperLeft));
 
         GUI.Label(new Rect(panel.x + 34f, panel.y + 104f, 316f, 18f), "TIMER: " + GetModifierTimerText(), CreateStyle(12, FontStyle.Normal, MutedText, TextAnchor.UpperLeft));
     }
@@ -463,15 +463,26 @@ public class GameUIBootstrap : MonoBehaviour
     {
         if (player == null) return "NO SIGNAL";
 
+        if (player.ActiveTimedModeRemaining > 0f)
+        {
+            return player.ActiveTimedModeLabel;
+        }
+
         float m = player.EffectiveSpeedMultiplier;
         if (m > 1.05f) return "BOOSTED x" + m.ToString("0.0");
         if (m < 0.95f) return "SLOWED x" + m.ToString("0.0");
-        return "NORMAL x1.0";
+        return "NORMAL";
     }
 
     private string GetModifierTimerText()
     {
         if (player == null) return "--";
+
+        float modeRemaining = player.ActiveTimedModeRemaining;
+        if (modeRemaining > 0f)
+        {
+            return modeRemaining.ToString("0.0") + "s";
+        }
 
         float remaining = player.TimedSpeedRemaining;
         return remaining > 0f ? remaining.ToString("0.0") + "s" : "--";
@@ -480,6 +491,19 @@ public class GameUIBootstrap : MonoBehaviour
     private Color GetModifierColor()
     {
         if (player == null) return MutedText;
+
+        if (player.ActiveTimedModeRemaining > 0f)
+        {
+            switch (player.ActiveTimedModeLabel)
+            {
+                case "JUMP":
+                    return new Color(0.25f, 1f, 0.68f, 1f);
+                case "SPRINT":
+                    return new Color(1f, 0.12f, 0.28f, 1f);
+                default:
+                    return Cyan;
+            }
+        }
 
         float m = player.EffectiveSpeedMultiplier;
         if (m > 1.05f) return Cyan;

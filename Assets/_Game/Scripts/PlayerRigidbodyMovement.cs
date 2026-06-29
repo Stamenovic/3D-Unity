@@ -42,6 +42,8 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [Header("Movement Audio")]
     [SerializeField] private float movementAudioVolume = 0.55f;
     [SerializeField] private float movementAudioMinSpeed = 0.15f;
+    [SerializeField] private float movementAudioMinPitch = 0.55f;
+    [SerializeField] private float movementAudioMaxPitch = 1.35f;
 
     [Header("Obstacle Impact")]
     [SerializeField] private bool enableObstacleImpactRecovery = true;
@@ -83,6 +85,9 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private float timedSprintSpeedMultiplier = 1f;
     private float zoneSpeedMultiplier = 1f;
     private float timedEffectEndTime;
+    private float activeTimedModeEndTime;
+    private int activeTimedModeToken;
+    private string activeTimedModeLabel = "NORMAL";
     private bool recoveringFromImpact;
     private bool applyingImpactRootMotion;
     private bool compensatingImpactVisualOffset;
@@ -104,6 +109,8 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     public float EffectiveSpeedMultiplier => timedSpeedMultiplier * zoneSpeedMultiplier;
     private float EffectiveAnimationSpeedMultiplier => EffectiveSpeedMultiplier * (wantsToRun ? timedSprintSpeedMultiplier : 1f);
     public float TimedSpeedRemaining => timedSpeedMultiplier != 1f ? Mathf.Max(0f, timedEffectEndTime - Time.time) : 0f;
+    public string ActiveTimedModeLabel => ActiveTimedModeRemaining > 0f ? activeTimedModeLabel : "NORMAL";
+    public float ActiveTimedModeRemaining => Mathf.Max(0f, activeTimedModeEndTime - Time.time);
     public bool IsRecoveringFromImpact => recoveringFromImpact;
 
     private void Awake()
@@ -650,6 +657,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
                 movementAudioSource.Stop();
             }
 
+            movementAudioSource.pitch = 1f;
             return;
         }
 
@@ -665,6 +673,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
 
         movementAudioSource.volume = movementAudioVolume * GameUIBootstrap.EffectsVolume;
         movementAudioSource.mute = !GameUIBootstrap.EffectsEnabled;
+        movementAudioSource.pitch = Mathf.Clamp(zoneSpeedMultiplier, movementAudioMinPitch, movementAudioMaxPitch);
     }
 
     // ─── Speed Effects ────────────────────────────────────────────────────────
@@ -672,19 +681,43 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     public void ApplyTimedSpeedEffect(float multiplier, float duration)
     {
         StopCoroutine(nameof(TimedSpeedRoutine));
+        StartTimedModeDisplay("SPEED", duration);
         StartCoroutine(TimedSpeedRoutine(multiplier, duration));
     }
 
     public void ApplyTimedJumpEffect(float multiplier, float duration)
     {
         StopCoroutine(nameof(TimedJumpRoutine));
+        StartTimedModeDisplay("JUMP", duration);
         StartCoroutine(TimedJumpRoutine(multiplier, duration));
     }
 
     public void ApplyTimedSprintSpeedEffect(float multiplier, float duration)
     {
         StopCoroutine(nameof(TimedSprintSpeedRoutine));
+        StartTimedModeDisplay("SPRINT", duration);
         StartCoroutine(TimedSprintSpeedRoutine(multiplier, duration));
+    }
+
+    private void StartTimedModeDisplay(string modeLabel, float duration)
+    {
+        activeTimedModeToken++;
+        activeTimedModeLabel = modeLabel;
+        activeTimedModeEndTime = Time.time + duration;
+        StartCoroutine(ClearTimedModeDisplay(activeTimedModeToken, duration));
+    }
+
+    private System.Collections.IEnumerator ClearTimedModeDisplay(int token, float duration)
+    {
+        yield return new WaitForSeconds(duration);
+
+        if (token != activeTimedModeToken)
+        {
+            yield break;
+        }
+
+        activeTimedModeLabel = "NORMAL";
+        activeTimedModeEndTime = 0f;
     }
 
     private System.Collections.IEnumerator TimedSpeedRoutine(float multiplier, float duration)
