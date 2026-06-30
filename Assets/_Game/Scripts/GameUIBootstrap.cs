@@ -52,6 +52,7 @@ public class GameUIBootstrap : MonoBehaviour
     private AudioSource ambientMusic;
     private bool missionStarted;
     private bool settingsOpen;
+    private bool startMissionAfterSceneLoad;
     private bool musicEnabled = true;
     private bool specialEffectsEnabled = true;
     private float musicVolume = 0.35f;
@@ -94,6 +95,14 @@ public class GameUIBootstrap : MonoBehaviour
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         FindPlayer();
+
+        if (startMissionAfterSceneLoad)
+        {
+            startMissionAfterSceneLoad = false;
+            StartMission();
+            return;
+        }
+
         ShowMainMenu();
     }
 
@@ -757,6 +766,10 @@ public class GameUIBootstrap : MonoBehaviour
 
     private void RestartScene()
     {
+        startMissionAfterSceneLoad = true;
+        missionStarted = true;
+        settingsOpen = false;
+
         if (LevelManager.Instance != null)
         {
             LevelManager.Instance.ResetLevel();

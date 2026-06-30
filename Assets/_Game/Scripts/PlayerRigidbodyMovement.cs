@@ -28,6 +28,15 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private Animator animator;
     [SerializeField] private float jumpUpAnimationTime = 0.35f;
 
+    [Header("Slide")]
+    [SerializeField] private float slideMinStartSpeed = 1.2f;
+    [SerializeField] private float slideFullSpeedTime = 2f;
+    [SerializeField] private float slideMaxDuration = 5f;
+    [SerializeField] private float slideEndSpeedMultiplier = 0.72f;
+    [SerializeField] private float slideEnterBlendTime = 0.1f;
+    [SerializeField] private float slideExitBlendTime = 0.16f;
+    [SerializeField] private float slideVisualHipsCompensation = 1f;
+
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
     private static readonly int SpeedMultiplierHash = Animator.StringToHash("SpeedMultiplier");
     private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
@@ -36,6 +45,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private static readonly int RunStateHash = Animator.StringToHash("Run");
     private static readonly int JumpUpStateHash = Animator.StringToHash("JumpUp");
     private static readonly int JumpDownStateHash = Animator.StringToHash("JumpDown");
+    private static readonly int SlideStateHash = Animator.StringToHash("Slide");
     private static readonly int FallDownStateHash = Animator.StringToHash("FallDown");
     private static readonly int GetUpStateHash = Animator.StringToHash("GetUp");
 
@@ -79,6 +89,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private bool keyboardWantsToRun;
     private bool wantsToRun;
     private bool wantsToJump;
+    private bool wantsToSlide;
 
     private float timedSpeedMultiplier = 1f;
     private float timedJumpMultiplier = 1f;
@@ -99,6 +110,15 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private bool wasGroundedLastFrame = true;
     private bool playingJumpUp;
     private bool playingJumpDown;
+    private bool sliding;
+    private bool compensatingSlideVisualOffset;
+    private Vector3 slideDirection;
+    private float slideStartSpeed;
+    private float slideElapsed;
+    private Transform slideVisualRoot;
+    private Transform slideHips;
+    private Vector3 slideVisualRootBaseLocalPosition;
+    private Vector3 slideHipsAnchorLocalPosition;
     private float ignoreGroundForJumpAnimationUntil;
     private float jumpUpAnimationUntil;
 
@@ -156,6 +176,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private void LateUpdate()
     {
         CompensateImpactVisualOffset();
+        CompensateSlideVisualOffset();
     }
 
     private void UpdateAnimator()
@@ -215,6 +236,11 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         {
             wantsToJump = true;
         }
+
+        if (Keyboard.current.eKey.wasPressedThisFrame)
+        {
+            wantsToSlide = true;
+        }
     }
 
     private void UpdateRunIntent()
@@ -244,6 +270,25 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         {
             StopHorizontalRecoveryVelocity();
             wantsToJump = false;
+            wantsToSlide = false;
+            return;
+        }
+
+        if (sliding)
+        {
+            MoveSlide();
+            ApplyExtraGravity();
+            wantsToJump = false;
+            wantsToSlide = false;
+            return;
+        }
+
+        if (wantsToSlide && CanStartSlide())
+        {
+            StartSlide();
+            MoveSlide();
+            ApplyExtraGravity();
+            wantsToSlide = false;
             return;
         }
 
@@ -254,6 +299,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
             Jump();
 
         wantsToJump = false;
+        wantsToSlide = false;
     }
 
     private void Move()
@@ -339,6 +385,70 @@ public class PlayerRigidbodyMovement : MonoBehaviour
 
         Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime);
+    }
+
+    private bool CanStartSlide()
+    {
+        return IsGrounded &&
+               wantsToRun &&
+               HasMovementInput &&
+               CurrentSpeed >= slideMinStartSpeed &&
+               !recoveringFromImpact;
+    }
+
+    private void StartSlide()
+    {
+        Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        slideDirection = horizontalVelocity.sqrMagnitude > 0.01f
+            ? horizontalVelocity.normalized
+            : transform.forward;
+        slideDirection.y = 0f;
+        slideDirection.Normalize();
+
+        if (slideDirection.sqrMagnitude < 0.01f)
+        {
+            slideDirection = transform.forward;
+            slideDirection.y = 0f;
+            slideDirection.Normalize();
+        }
+
+        slideStartSpeed = Mathf.Max(CurrentSpeed, runSpeed * timedSprintSpeedMultiplier * timedSpeedMultiplier * zoneSpeedMultiplier);
+        slideElapsed = 0f;
+        sliding = true;
+        wantsToJump = false;
+        playingJumpUp = false;
+        playingJumpDown = false;
+
+        BeginSlideVisualCompensation();
+        PlayAnimatorState(SlideStateHash, slideEnterBlendTime);
+    }
+
+    private void MoveSlide()
+    {
+        slideElapsed += Time.fixedDeltaTime;
+
+        if (slideElapsed >= slideMaxDuration || !IsGrounded)
+        {
+            StopSlide();
+            return;
+        }
+
+        float slowT = slideFullSpeedTime >= slideMaxDuration
+            ? 1f
+            : Mathf.InverseLerp(slideFullSpeedTime, slideMaxDuration, slideElapsed);
+        float speedMultiplier = Mathf.Lerp(1f, slideEndSpeedMultiplier, Mathf.SmoothStep(0f, 1f, slowT));
+        float slideSpeed = slideStartSpeed * speedMultiplier;
+
+        Vector3 velocity = rb.linearVelocity;
+        rb.linearVelocity = new Vector3(slideDirection.x * slideSpeed, velocity.y, slideDirection.z * slideSpeed);
+        CurrentSpeed = slideSpeed;
+    }
+
+    private void StopSlide()
+    {
+        sliding = false;
+        EndSlideVisualCompensation();
+        PlayAnimatorState(GetLocomotionStateHash(), slideExitBlendTime);
     }
 
     private void Jump()
@@ -579,6 +689,54 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         compensatingImpactVisualOffset = false;
         impactVisualRoot = null;
         impactHips = null;
+    }
+
+    private void BeginSlideVisualCompensation()
+    {
+        if (animator == null || slideVisualHipsCompensation <= 0f)
+        {
+            compensatingSlideVisualOffset = false;
+            return;
+        }
+
+        slideVisualRoot = animator.transform;
+        slideHips = animator.GetBoneTransform(HumanBodyBones.Hips);
+        if (slideVisualRoot == null || slideHips == null)
+        {
+            compensatingSlideVisualOffset = false;
+            return;
+        }
+
+        slideVisualRootBaseLocalPosition = slideVisualRoot.localPosition;
+        slideHipsAnchorLocalPosition = transform.InverseTransformPoint(slideHips.position);
+        compensatingSlideVisualOffset = true;
+    }
+
+    private void CompensateSlideVisualOffset()
+    {
+        if (!compensatingSlideVisualOffset || slideVisualRoot == null || slideHips == null)
+        {
+            return;
+        }
+
+        slideVisualRoot.localPosition = slideVisualRootBaseLocalPosition;
+
+        Vector3 currentLocalHipsPosition = transform.InverseTransformPoint(slideHips.position);
+        Vector3 correction = slideHipsAnchorLocalPosition - currentLocalHipsPosition;
+        correction.y = 0f;
+        slideVisualRoot.localPosition += correction * slideVisualHipsCompensation;
+    }
+
+    private void EndSlideVisualCompensation()
+    {
+        if (slideVisualRoot != null)
+        {
+            slideVisualRoot.localPosition = slideVisualRootBaseLocalPosition;
+        }
+
+        compensatingSlideVisualOffset = false;
+        slideVisualRoot = null;
+        slideHips = null;
     }
 
     private void PlayFallAnimation()

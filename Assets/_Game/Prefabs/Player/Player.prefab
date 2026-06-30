@@ -159,6 +159,13 @@ MonoBehaviour:
   groundSensor: {fileID: 5454405191391891016}
   animator: {fileID: 9107185039927942839}
   jumpUpAnimationTime: 0.35
+  slideMinStartSpeed: 1.2
+  slideFullSpeedTime: 2
+  slideMaxDuration: 5
+  slideEndSpeedMultiplier: 0.72
+  slideEnterBlendTime: 0.1
+  slideExitBlendTime: 0.16
+  slideVisualHipsCompensation: 1
   movementAudioVolume: 0.55
   movementAudioMinSpeed: 0.15
   movementAudioMinPitch: 0.55
