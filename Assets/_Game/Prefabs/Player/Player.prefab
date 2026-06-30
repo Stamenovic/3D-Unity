@@ -160,12 +160,13 @@ MonoBehaviour:
   animator: {fileID: 9107185039927942839}
   jumpUpAnimationTime: 0.35
   slideMinStartSpeed: 1.2
-  slideFullSpeedTime: 2
-  slideMaxDuration: 5
-  slideEndSpeedMultiplier: 0.72
+  slideDuration: 1.5
   slideEnterBlendTime: 0.1
   slideExitBlendTime: 0.16
-  slideVisualHipsCompensation: 1
+  slideVisualHipsCompensation: 0
+  slideColliderHeight: 1.15
+  slideColliderRadius: 0.2
+  slideColliderCenter: {x: 0, y: 0.25, z: 0}
   movementAudioVolume: 0.55
   movementAudioMinSpeed: 0.15
   movementAudioMinPitch: 0.55
