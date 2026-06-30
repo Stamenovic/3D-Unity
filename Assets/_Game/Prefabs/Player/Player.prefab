@@ -164,9 +164,9 @@ MonoBehaviour:
   slideEnterBlendTime: 0.1
   slideExitBlendTime: 0.16
   slideVisualHipsCompensation: 0
-  slideColliderHeight: 1.15
-  slideColliderRadius: 0.2
-  slideColliderCenter: {x: 0, y: 0.25, z: 0}
+  slideColliderHeight: 1.1
+  slideColliderRadius: 0.13
+  slideColliderCenter: {x: 0, y: 0.16, z: 0}
   movementAudioVolume: 0.55
   movementAudioMinSpeed: 0.15
   movementAudioMinPitch: 0.55

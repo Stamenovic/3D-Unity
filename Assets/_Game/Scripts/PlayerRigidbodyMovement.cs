@@ -34,9 +34,9 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private float slideEnterBlendTime = 0.1f;
     [SerializeField] private float slideExitBlendTime = 0.16f;
     [SerializeField] private float slideVisualHipsCompensation = 0f;
-    [SerializeField] private float slideColliderHeight = 1.15f;
-    [SerializeField] private float slideColliderRadius = 0.2f;
-    [SerializeField] private Vector3 slideColliderCenter = new Vector3(0f, 0.25f, 0f);
+    [SerializeField] private float slideColliderHeight = 1.1f;
+    [SerializeField] private float slideColliderRadius = 0.13f;
+    [SerializeField] private Vector3 slideColliderCenter = new Vector3(0f, 0.16f, 0f);
 
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
     private static readonly int SpeedMultiplierHash = Animator.StringToHash("SpeedMultiplier");
@@ -578,7 +578,12 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private void OnCollisionEnter(Collision collision)
     {
         bool wasSliding = sliding;
-        if (wasSliding && IsSlideBlockingCollision(collision))
+        if (wasSliding && !IsSlideBlockingCollision(collision))
+        {
+            return;
+        }
+
+        if (wasSliding)
         {
             StopSlide();
         }
@@ -628,7 +633,14 @@ public class PlayerRigidbodyMovement : MonoBehaviour
             return false;
         }
 
-        Vector3 obstacleDirection = collision.GetContact(0).point - transform.position;
+        ContactPoint contact = collision.GetContact(0);
+        float slideTop = transform.position.y + slideColliderCenter.y + slideColliderRadius;
+        if (contact.point.y > slideTop + 0.05f)
+        {
+            return false;
+        }
+
+        Vector3 obstacleDirection = contact.point - transform.position;
         obstacleDirection.y = 0f;
         if (obstacleDirection.sqrMagnitude < 0.01f)
         {
