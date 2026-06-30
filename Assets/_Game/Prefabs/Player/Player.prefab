@@ -167,6 +167,11 @@ MonoBehaviour:
   slideColliderHeight: 1.1
   slideColliderRadius: 0.13
   slideColliderCenter: {x: 0, y: 0.16, z: 0}
+  autoSlideDownSlopes: 1
+  autoSlideMinSlopeAngle: 8
+  autoSlideMinDownhillDot: 0.25
+  groundProbeDistance: 1.15
+  slideGroundGraceTime: 0.25
   movementAudioVolume: 0.55
   movementAudioMinSpeed: 0.15
   movementAudioMinPitch: 0.55

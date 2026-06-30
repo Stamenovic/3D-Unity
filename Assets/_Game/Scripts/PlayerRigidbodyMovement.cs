@@ -37,6 +37,11 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     [SerializeField] private float slideColliderHeight = 1.1f;
     [SerializeField] private float slideColliderRadius = 0.13f;
     [SerializeField] private Vector3 slideColliderCenter = new Vector3(0f, 0.16f, 0f);
+    [SerializeField] private bool autoSlideDownSlopes = true;
+    [SerializeField] private float autoSlideMinSlopeAngle = 8f;
+    [SerializeField] private float autoSlideMinDownhillDot = 0.25f;
+    [SerializeField] private float groundProbeDistance = 1.15f;
+    [SerializeField] private float slideGroundGraceTime = 0.25f;
 
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
     private static readonly int SpeedMultiplierHash = Animator.StringToHash("SpeedMultiplier");
@@ -127,6 +132,9 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private float standingColliderRadius;
     private int standingColliderDirection;
     private Vector3 standingColliderCenter;
+    private bool hasGroundHit;
+    private RaycastHit groundHit;
+    private float lastSlideGroundedTime;
     private float ignoreGroundForJumpAnimationUntil;
     private float jumpUpAnimationUntil;
 
@@ -278,10 +286,27 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         );
     }
 
+    private bool TryGetGroundHit(out RaycastHit hit)
+    {
+        Vector3 origin = transform.position + Vector3.up * 0.35f;
+
+        return Physics.SphereCast(
+            origin,
+            fallbackGroundCheckRadius,
+            Vector3.down,
+            out hit,
+            groundProbeDistance,
+            Physics.DefaultRaycastLayers,
+            QueryTriggerInteraction.Ignore
+        );
+    }
+
     // ─── Physics ──────────────────────────────────────────────────────────────
 
     private void FixedUpdate()
     {
+        hasGroundHit = TryGetGroundHit(out groundHit);
+
         if (recoveringFromImpact)
         {
             StopHorizontalRecoveryVelocity();
@@ -302,6 +327,15 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         if (wantsToSlide && CanStartSlide())
         {
             StartSlide();
+            MoveSlide();
+            ApplyExtraGravity();
+            wantsToSlide = false;
+            return;
+        }
+
+        if (ShouldAutoSlideDownSlope())
+        {
+            StartSlide(GetDownSlopeDirection(groundHit.normal));
             MoveSlide();
             ApplyExtraGravity();
             wantsToSlide = false;
@@ -405,7 +439,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
 
     private bool CanStartSlide()
     {
-        return IsGrounded &&
+        return (IsGrounded || hasGroundHit) &&
                wantsToRun &&
                HasMovementInput &&
                CurrentSpeed >= slideMinStartSpeed &&
@@ -415,9 +449,15 @@ public class PlayerRigidbodyMovement : MonoBehaviour
     private void StartSlide()
     {
         Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-        slideDirection = horizontalVelocity.sqrMagnitude > 0.01f
+        Vector3 direction = horizontalVelocity.sqrMagnitude > 0.01f
             ? horizontalVelocity.normalized
             : transform.forward;
+        StartSlide(direction);
+    }
+
+    private void StartSlide(Vector3 direction)
+    {
+        slideDirection = direction;
         slideDirection.y = 0f;
         slideDirection.Normalize();
 
@@ -430,6 +470,7 @@ public class PlayerRigidbodyMovement : MonoBehaviour
 
         slideStartSpeed = Mathf.Max(CurrentSpeed, runSpeed * timedSprintSpeedMultiplier * timedSpeedMultiplier * zoneSpeedMultiplier);
         slideElapsed = 0f;
+        lastSlideGroundedTime = Time.time;
         sliding = true;
         slideCanRestartAfterRelease = false;
         wantsToJump = false;
@@ -441,11 +482,46 @@ public class PlayerRigidbodyMovement : MonoBehaviour
         PlayAnimatorState(SlideStateHash, slideEnterBlendTime);
     }
 
+    private bool ShouldAutoSlideDownSlope()
+    {
+        if (!autoSlideDownSlopes || !hasGroundHit || !wantsToRun || !HasMovementInput || CurrentSpeed < slideMinStartSpeed)
+        {
+            return false;
+        }
+
+        float slopeAngle = Vector3.Angle(groundHit.normal, Vector3.up);
+        if (slopeAngle < autoSlideMinSlopeAngle)
+        {
+            return false;
+        }
+
+        Vector3 downhill = GetDownSlopeDirection(groundHit.normal);
+        if (downhill.sqrMagnitude < 0.01f)
+        {
+            return false;
+        }
+
+        Vector3 moveDirection = GetCameraRelativeMoveDirection();
+        return Vector3.Dot(moveDirection, downhill) >= autoSlideMinDownhillDot;
+    }
+
+    private Vector3 GetDownSlopeDirection(Vector3 groundNormal)
+    {
+        Vector3 downhill = Vector3.ProjectOnPlane(Vector3.down, groundNormal);
+        downhill.y = 0f;
+        return downhill.sqrMagnitude > 0.01f ? downhill.normalized : Vector3.zero;
+    }
+
     private void MoveSlide()
     {
         slideElapsed += Time.fixedDeltaTime;
 
-        if (slideElapsed >= slideDuration || !IsGrounded)
+        if (hasGroundHit || IsGrounded)
+        {
+            lastSlideGroundedTime = Time.time;
+        }
+
+        if (slideElapsed >= slideDuration || Time.time - lastSlideGroundedTime > slideGroundGraceTime)
         {
             StopSlide();
             return;
@@ -603,6 +679,11 @@ public class PlayerRigidbodyMovement : MonoBehaviour
             return;
         }
 
+        if (IsGroundOrSlopeContact(collision))
+        {
+            return;
+        }
+
         float impactSpeed = Mathf.Max(CurrentSpeed, collision.relativeVelocity.magnitude);
         if (!IsHighSpeedFallImpact(impactSpeed))
         {
@@ -633,6 +714,11 @@ public class PlayerRigidbodyMovement : MonoBehaviour
             return false;
         }
 
+        if (IsGroundOrSlopeContact(collision))
+        {
+            return false;
+        }
+
         ContactPoint contact = collision.GetContact(0);
         float slideTop = transform.position.y + slideColliderCenter.y + slideColliderRadius;
         if (contact.point.y > slideTop + 0.05f)
@@ -649,6 +735,20 @@ public class PlayerRigidbodyMovement : MonoBehaviour
 
         float approach = Vector3.Dot(slideDirection, obstacleDirection.normalized);
         return approach > 0.35f;
+    }
+
+    private bool IsGroundOrSlopeContact(Collision collision)
+    {
+        for (int i = 0; i < collision.contactCount; i++)
+        {
+            ContactPoint contact = collision.GetContact(i);
+            if (Vector3.Dot(contact.normal, Vector3.up) > 0.45f)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool IsHardImpactCollider(Collider hitCollider)
